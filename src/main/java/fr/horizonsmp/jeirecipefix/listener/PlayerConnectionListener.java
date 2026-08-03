@@ -8,6 +8,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerRegisterChannelEvent;
 import org.bukkit.plugin.Plugin;
 
@@ -64,6 +65,18 @@ public final class PlayerConnectionListener implements Listener {
         // A tick of slack: the client announces its channels one at a time, so the rest of the burst
         // — JEI's own channel among them — has not been recorded yet when this fires.
         player.getScheduler().runDelayed(plugin, task -> syncService.syncOnceTo(player), null, CHANNEL_SETTLE_TICKS);
+    }
+
+    @EventHandler
+    public void onRespawn(PlayerRespawnEvent event) {
+        if (!config.get().syncOnJoin()) {
+            return;
+        }
+        // Vanilla re-sends the recipe book on respawn with replace=true, which drops everything this
+        // plugin added and empties REI until the player rejoins.
+        Player player = event.getPlayer();
+        player.getScheduler().runDelayed(plugin, task -> syncService.resendRecipeBook(player), null,
+                CHANNEL_SETTLE_TICKS);
     }
 
     @EventHandler

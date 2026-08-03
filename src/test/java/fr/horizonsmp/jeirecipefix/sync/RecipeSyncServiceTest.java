@@ -1,7 +1,9 @@
 package fr.horizonsmp.jeirecipefix.sync;
 
 import fr.horizonsmp.jeirecipefix.config.PluginConfig;
+import fr.horizonsmp.jeirecipefix.config.RecipeBookMode;
 import fr.horizonsmp.jeirecipefix.nms.RecipeBridge;
+import fr.horizonsmp.jeirecipefix.nms.RecipeBridge.RecipeBookStats;
 import fr.horizonsmp.jeirecipefix.nms.RecipePayload;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
@@ -32,6 +34,8 @@ class RecipeSyncServiceTest {
     /** One of JEI's own channels; the service only checks the namespace. */
     private static final String JEI = RecipeSyncService.JEI_CHANNEL_NAMESPACE + "cheat_permission";
     private static final String FABRIC_SYNC = RecipeSyncService.FABRIC_RECIPE_SYNC_CHANNEL;
+    /** One of REI's own channels; the service only checks the namespace. */
+    private static final String REI = RecipeSyncService.REI_CHANNEL_NAMESPACE + "sync_displays";
 
     private final AtomicInteger fabricBuilds = new AtomicInteger();
     private final List<String> calls = new ArrayList<>();
@@ -57,11 +61,27 @@ class RecipeSyncServiceTest {
                 calls.add("neoforge");
                 return true;
             }
+
+            @Override public boolean canSendRecipeBook() { return true; }
+            @Override public RecipeBookStats recipeBookStats() { return new RecipeBookStats(7, 1, 100); }
+            @Override public void invalidateRecipeBook() { }
+
+            @Override
+            public boolean sendRecipeBook(Player player) {
+                calls.add("recipe-book");
+                return true;
+            }
         };
     }
 
     private RecipeSyncService service(boolean available, PluginConfig config) {
         return service(bridge(available, true, FABRIC_PAYLOAD), config);
+    }
+
+    private static PluginConfig withRecipeBook(RecipeBookMode mode) {
+        PluginConfig d = PluginConfig.defaults();
+        return new PluginConfig(d.enabled(), d.syncOnJoin(), d.syncOnDatapackReload(),
+                d.recipeUpdateTrigger(), mode, d.explainJeiWarning(), d.debug());
     }
 
     private RecipeSyncService service(RecipeBridge bridge, PluginConfig config) {
@@ -98,7 +118,7 @@ class RecipeSyncServiceTest {
         assertTrue(enabled.shouldSync(ClientBrand.NEOFORGE));
         assertFalse(enabled.shouldSync(ClientBrand.OTHER));
 
-        RecipeSyncService disabled = service(true, new PluginConfig(false, true, true, true, true, false));
+        RecipeSyncService disabled = service(true, new PluginConfig(false, true, true, true, RecipeBookMode.OFF, true, false));
         assertFalse(disabled.shouldSync(ClientBrand.FABRIC));
 
         RecipeSyncService unavailable = service(false, PluginConfig.defaults());
@@ -140,7 +160,7 @@ class RecipeSyncServiceTest {
 
     @Test
     void neverTriggersWhenDisabledInConfigOrUnsupportedByTheServer() {
-        PluginConfig triggerOff = new PluginConfig(true, true, true, false, true, false);
+        PluginConfig triggerOff = new PluginConfig(true, true, true, false, RecipeBookMode.OFF, true, false);
         service(true, triggerOff).syncTo(fabricPlayer(FABRIC_SYNC, JEI));
 
         RecipeBridge noTrigger = bridge(true, false, FABRIC_PAYLOAD);
@@ -163,9 +183,31 @@ class RecipeSyncServiceTest {
 
     @Test
     void doesNotExplainJeiSWarningWhenTurnedOff() {
-        PluginConfig noticeOff = new PluginConfig(true, true, true, true, false, false);
+        PluginConfig noticeOff = new PluginConfig(true, true, true, true, RecipeBookMode.OFF, false, false);
         service(true, noticeOff).syncTo(fabricPlayer(FABRIC_SYNC, JEI));
         assertEquals(List.of(), notified);
+    }
+
+    @Test
+    void sendsTheRecipeBookOnlyToReiClientsUnderAuto() {
+        RecipeSyncService service = service(true, withRecipeBook(RecipeBookMode.AUTO));
+
+        service.syncTo(fabricPlayer(FABRIC_SYNC, JEI));
+        assertEquals(List.of("fabric:trigger=true"), calls, "a JEI-only client does not need it");
+
+        calls.clear();
+        service.syncTo(fabricPlayer(FABRIC_SYNC, REI));
+        assertEquals(List.of("fabric:trigger=false", "recipe-book"), calls);
+    }
+
+    @Test
+    void recipeBookModeAllSendsToEveryModdedClientAndOffToNone() {
+        service(true, withRecipeBook(RecipeBookMode.ALL)).syncTo(fabricPlayer(FABRIC_SYNC));
+        assertEquals(List.of("fabric:trigger=false", "recipe-book"), calls);
+
+        calls.clear();
+        service(true, withRecipeBook(RecipeBookMode.OFF)).syncTo(fabricPlayer(FABRIC_SYNC, REI));
+        assertEquals(List.of("fabric:trigger=false"), calls);
     }
 
     @Test

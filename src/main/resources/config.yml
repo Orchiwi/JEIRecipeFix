@@ -16,6 +16,15 @@ sync-on-datapack-reload: true
 # Turn this off if a recipe viewer misbehaves; recipes are then only correct after a rejoin.
 recipe-update-trigger: true
 
+# Send the server's full recipe book to the client.
+# This is the only thing REI reads: it builds its recipe list from the vanilla recipe-book packet,
+# and a server normally sends only the recipes a player has already unlocked, which is why REI looks
+# empty. The side effect is that the player's own recipe book lists every recipe as known.
+#   auto - only clients that report REI (recommended)
+#   all  - every Fabric/NeoForge client, for recipe viewers this plugin cannot detect
+#   off  - never
+recipe-book-sync: auto
+
 # Tell the player that JEI's warning is out of date.
 # JEI prints "this server does not provide recipes" before any plugin can send anything, and it is
 # still on screen after JEI has quietly reloaded with the server's recipes. This sends one chat line

@@ -25,6 +25,8 @@ public final class RecipeSyncService {
      * channel id keeps this working when JEI adds or renames one of its packets.
      */
     public static final String JEI_CHANNEL_NAMESPACE = "jei:";
+    /** REI's namespace. REI reads its recipes from the vanilla recipe book, not from the loader sync. */
+    public static final String REI_CHANNEL_NAMESPACE = "roughlyenoughitems:";
 
     /**
      * The client refuses a custom payload larger than this while decoding it, and a decode failure
@@ -87,6 +89,34 @@ public final class RecipeSyncService {
         return channels.contains(FABRIC_RECIPE_SYNC_CHANNEL) && hasJei(channels);
     }
 
+    /**
+     * Whether to send this client the server's full recipe book. REI builds its displays straight
+     * out of the vanilla recipe-book packet, and a plugin server only ever sends the handful of
+     * recipes the player has unlocked — which is why REI looks empty. The cost is that the player's
+     * own recipe book lists everything, so AUTO limits it to clients that report REI.
+     */
+    public boolean shouldSendRecipeBook(Player player) {
+        if (!bridge.canSendRecipeBook()) {
+            return false;
+        }
+        return switch (config.get().recipeBookSync()) {
+            case OFF -> false;
+            case ALL -> true;
+            case AUTO -> player.getListeningPluginChannels().stream()
+                    .anyMatch(channel -> channel.startsWith(REI_CHANNEL_NAMESPACE));
+        };
+    }
+
+    /** Re-sends the recipe book only. Vanilla wipes it on respawn, taking REI's displays with it. */
+    public boolean resendRecipeBook(Player player) {
+        if (!player.isOnline() || !config.get().enabled() || !shouldSendRecipeBook(player)) {
+            return false;
+        }
+        boolean sent = bridge.sendRecipeBook(player);
+        debug("Re-sent the recipe book to " + player.getName() + " (sent=" + sent + ")");
+        return sent;
+    }
+
     private static boolean hasJei(Set<String> channels) {
         return channels.stream().anyMatch(channel -> channel.startsWith(JEI_CHANNEL_NAMESPACE));
     }
@@ -130,8 +160,12 @@ public final class RecipeSyncService {
                 return false;
             }
         }
+        boolean recipeBook = false;
+        if (sent && shouldSendRecipeBook(player)) {
+            recipeBook = bridge.sendRecipeBook(player);
+        }
         if (sent) {
-            logSend(player, brand, payload, trigger);
+            logSend(player, brand, payload, trigger, recipeBook);
             if (trigger && config.get().explainJeiWarning() && jeiWarningNotice != null) {
                 // Only when the trigger went out: that is the one case where we know the client runs
                 // JEI, that it saw the warning, and that it has just reloaded with these recipes.
@@ -171,6 +205,7 @@ public final class RecipeSyncService {
     public void invalidate() {
         fabricPayload.invalidate();
         neoForgePayload.invalidate();
+        bridge.invalidateRecipeBook();
         synchronized (loggedBrands) {
             loggedBrands.clear();
         }
@@ -214,10 +249,12 @@ public final class RecipeSyncService {
         return payload;
     }
 
-    private void logSend(Player player, ClientBrand brand, RecipePayload payload, boolean triggered) {
+    private void logSend(Player player, ClientBrand brand, RecipePayload payload, boolean triggered,
+                         boolean recipeBook) {
         String message = "Sent " + payload.recipes() + " recipes to " + player.getName()
                 + " (" + brand + ", " + payload.size() + " bytes"
                 + (brand == ClientBrand.FABRIC ? ", recipe-update trigger: " + (triggered ? "yes" : "no") : "")
+                + (recipeBook ? ", recipe book: " + bridge.recipeBookStats().entries() + " entries" : "")
                 + ").";
         boolean first;
         synchronized (loggedBrands) {

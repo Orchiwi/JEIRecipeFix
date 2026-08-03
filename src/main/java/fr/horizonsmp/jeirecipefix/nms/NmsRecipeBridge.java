@@ -25,6 +25,8 @@ public final class NmsRecipeBridge implements RecipeBridge {
     /** Fabric's client only accepts serializers a recipe viewer opted into, and JEI opts into exactly these. */
     private static final String VANILLA_PREFIX = "minecraft:";
     private static final long FAILURE_LOG_INTERVAL_NANOS = TimeUnit.MINUTES.toNanos(5);
+    /** Well under the protocol frame limit, so even a heavy datapack never produces an oversized packet. */
+    private static final int RECIPE_BOOK_BATCH_BYTES = 512 * 1024;
 
     private final Plugin plugin;
     private boolean available;
@@ -60,6 +62,19 @@ public final class NmsRecipeBridge implements RecipeBridge {
     private Method syncedItemProperties;            // RecipeManager#getSynchronizedItemProperties()
     private Method syncedStonecutterRecipes;        // RecipeManager#getSynchronizedStonecutterRecipes()
     private boolean recipeUpdateTriggerAvailable;
+
+    // Vanilla recipe-book packets. REI builds its displays from these, so sending every recipe here
+    // is what makes REI work on a plugin server. Never register REI's own channels to go with it:
+    // if the server answers roughlyenoughitems:create_item and friends, REI decides the server runs
+    // REI, stops reading this packet, and waits for a sync it will never get.
+    private Method listDisplaysForRecipe;    // RecipeManager#listDisplaysForRecipe(ResourceKey, Consumer)
+    private Constructor<?> recipeBookAddCtor; // ClientboundRecipeBookAddPacket(List, boolean)
+    private Constructor<?> recipeBookEntryCtor; // Entry(RecipeDisplayEntry, boolean notification, boolean highlight)
+    private Object recipeBookEntryStreamCodec; // Entry.STREAM_CODEC, used to measure a batch
+    private boolean recipeBookAvailable;
+    private volatile List<Object> recipeBookPackets = List.of();
+    private volatile RecipeBookStats recipeBookStats = new RecipeBookStats(0, 0, 0);
+    private volatile boolean recipeBookDirty;
 
     private Method getHandle;
     private Method connectionSend;
@@ -172,6 +187,36 @@ public final class NmsRecipeBridge implements RecipeBridge {
                 "send", Reflect.clazz("net.minecraft.network.protocol.Packet"));
 
         resolveRecipeUpdateTrigger(recipeManager);
+        resolveRecipeBook(recipeManager);
+    }
+
+    /**
+     * Resolves the vanilla recipe-book packet. Kept out of the fatal path like the update trigger:
+     * losing it costs REI support, not the plugin.
+     */
+    private void resolveRecipeBook(Object recipeManager) {
+        try {
+            Class<?> recipeManagerClass = Reflect.clazz("net.minecraft.world.item.crafting.RecipeManager");
+            Class<?> displayEntry = Reflect.clazz("net.minecraft.world.item.crafting.display.RecipeDisplayEntry");
+            Class<?> resourceKey = Reflect.clazz("net.minecraft.resources.ResourceKey");
+            this.listDisplaysForRecipe = Reflect.method(recipeManagerClass, "listDisplaysForRecipe",
+                    resourceKey, java.util.function.Consumer.class);
+            Class<?> addPacket = Reflect.clazz("net.minecraft.network.protocol.game.ClientboundRecipeBookAddPacket");
+            Class<?> entry = Reflect.clazz("net.minecraft.network.protocol.game.ClientboundRecipeBookAddPacket$Entry");
+            this.recipeBookAddCtor = Reflect.ctor(addPacket, List.class, boolean.class);
+            this.recipeBookEntryCtor = Reflect.ctor(entry, displayEntry, boolean.class, boolean.class);
+            this.recipeBookEntryStreamCodec = Reflect.staticField(entry, "STREAM_CODEC");
+            this.recipeBookAvailable = true;
+            buildRecipeBookPackets(recipeManager);
+            RecipeBookStats stats = recipeBookStats;
+            plugin.getLogger().info("Prepared " + stats.entries() + " recipe-book entries in "
+                    + stats.packets() + " packet(s) (" + stats.bytes() + " bytes) for REI clients.");
+        } catch (RuntimeException e) {
+            this.recipeBookAvailable = false;
+            plugin.getLogger().warning("Could not resolve the vanilla recipe-book packet ("
+                    + e.getMessage() + "). JEI is unaffected, but REI will only show the recipes your "
+                    + "client already knows.");
+        }
     }
 
     /**
@@ -329,6 +374,111 @@ public final class NmsRecipeBridge implements RecipeBridge {
             return new RecipePayload(toBytes(buf), holders.size(), types.size(), List.of(), 0);
         } finally {
             ((io.netty.buffer.ByteBuf) buf).release();
+        }
+    }
+
+    @Override
+    public boolean canSendRecipeBook() {
+        return recipeBookAvailable;
+    }
+
+    @Override
+    public RecipeBookStats recipeBookStats() {
+        return recipeBookStats;
+    }
+
+    @Override
+    public void invalidateRecipeBook() {
+        this.recipeBookDirty = true;
+    }
+
+    /**
+     * Turns every recipe on the server into vanilla recipe-book entries, batched so no single packet
+     * approaches the frame limit. Built once and reused for every player: the entries are immutable
+     * and carry nothing player-specific.
+     */
+    @SuppressWarnings("unchecked")
+    private void buildRecipeBookPackets(Object recipeManager) {
+        List<Object> displays = new ArrayList<>();
+        for (Object holder : (Collection<?>) Reflect.call(getRecipes, recipeManager)) {
+            Object id = Reflect.call(holderId, holder);
+            Reflect.call(listDisplaysForRecipe, recipeManager, id,
+                    (java.util.function.Consumer<Object>) displays::add);
+        }
+
+        List<Object> packets = new ArrayList<>();
+        List<Object> batch = new ArrayList<>();
+        int total = 0;
+        Object buf = newRegistryBuf();
+        try {
+            int batchStart = 0;
+            for (Object display : displays) {
+                Object entry = newRecipeBookEntry(display);
+                // Measure as we go: entry sizes vary wildly, so a fixed entry count per packet would
+                // either waste packets or overshoot the frame limit on a heavy datapack.
+                Reflect.call(streamCodecEncode, recipeBookEntryStreamCodec, buf, entry);
+                batch.add(entry);
+                int size = ((ByteBuf) buf).readableBytes();
+                if (size - batchStart >= RECIPE_BOOK_BATCH_BYTES) {
+                    packets.add(newRecipeBookPacket(batch));
+                    batch = new ArrayList<>();
+                    batchStart = size;
+                }
+            }
+            total = ((ByteBuf) buf).readableBytes();
+        } finally {
+            ((ByteBuf) buf).release();
+        }
+        if (!batch.isEmpty()) {
+            packets.add(newRecipeBookPacket(batch));
+        }
+        this.recipeBookPackets = List.copyOf(packets);
+        this.recipeBookStats = new RecipeBookStats(displays.size(), packets.size(), total);
+        this.recipeBookDirty = false;
+    }
+
+    private Object newRecipeBookEntry(Object display) {
+        try {
+            // (notification, highlight) both false: no toast popup, no "new recipe" glow.
+            return recipeBookEntryCtor.newInstance(display, false, false);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Cannot build a recipe-book entry", e);
+        }
+    }
+
+    private Object newRecipeBookPacket(List<Object> batch) {
+        try {
+            // replace=false: add to whatever the server already sent, never wipe the player's book.
+            return recipeBookAddCtor.newInstance(List.copyOf(batch), false);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Cannot build ClientboundRecipeBookAddPacket", e);
+        }
+    }
+
+    @Override
+    public boolean sendRecipeBook(Player player) {
+        if (!recipeBookAvailable) {
+            return false;
+        }
+        try {
+            if (recipeBookDirty) {
+                buildRecipeBookPackets(Reflect.call(getRecipeManager, minecraftServer));
+            }
+            List<Object> packets = recipeBookPackets;
+            if (packets.isEmpty()) {
+                return false;
+            }
+            Object connection = connectionOf(player);
+            if (connection == null) {
+                return false;
+            }
+            for (Object packet : packets) {
+                sendPacket(connection, packet);
+            }
+            return true;
+        } catch (RuntimeException e) {
+            logFailure("recipe-book", "Failed to send recipe-book entries to " + player.getName(), e);
+            return false;
         }
     }
 
