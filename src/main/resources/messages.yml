@@ -9,6 +9,7 @@ recipe-sync-dormant: "&cRecipe sync is dormant (unsupported server internals)."
 info-line: "&7Recipes: &f%recipes% &7| Online players: &f%players% &7| Sync: &f%state% &7| Recipe-update trigger: &f%trigger% &7| Send failures: &f%failures%"
 unknown-subcommand: "&cUnknown subcommand. Use &e/jrf help&c."
 help: "&bJEIRecipeFix: &e/jrf resync [player|all]&7, &e/jrf reload&7, &e/jrf info"
-# Sent only to players whose client just received the recipes and is known to have JEI, right after
-# JEI's own (by then outdated) warning that the server sends no recipes.
-jei-warning-notice: "&aRecipes synced. &7Ignore the JEI warning above: the recipes you see are the ones this server uses."
+# Sent to players whose client just received the recipes and is known to have JEI.
+# Worded so it also reads correctly for a client whose JEI is old enough not to print that warning:
+# the server cannot see a client mod's version, so it cannot tell the two apart.
+jei-warning-notice: "&aServer recipes synced to JEI. &7If JEI warned otherwise above, that warning is out of date."
