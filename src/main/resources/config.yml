@@ -9,5 +9,12 @@ sync-on-join: true
 # Re-send recipes to online players after a datapack reload.
 sync-on-datapack-reload: true
 
+# After sending the recipes, ask the client to re-read them.
+# JEI builds its recipe list the moment the server's own recipe packet arrives, which is before any
+# plugin can send anything, so without this it keeps showing your client's default recipes for the
+# whole session. Only sent to clients that report both Fabric's recipe-sync channel and JEI.
+# Turn this off if a recipe viewer misbehaves; recipes are then only correct after a rejoin.
+recipe-update-trigger: true
+
 # Verbose logging for troubleshooting (per-player brand + recipe counts).
 debug: false

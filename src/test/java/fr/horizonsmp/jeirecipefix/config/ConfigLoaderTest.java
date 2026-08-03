@@ -16,6 +16,7 @@ class ConfigLoaderTest {
                 enabled: false
                 sync-on-join: false
                 sync-on-datapack-reload: true
+                recipe-update-trigger: false
                 debug: true
                 """);
 
@@ -24,6 +25,7 @@ class ConfigLoaderTest {
         assertFalse(config.enabled());
         assertFalse(config.syncOnJoin());
         assertTrue(config.syncOnDatapackReload());
+        assertFalse(config.recipeUpdateTrigger());
         assertTrue(config.debug());
     }
 
@@ -36,5 +38,6 @@ class ConfigLoaderTest {
         PluginConfig fromEmpty = ConfigLoader.fromSection(empty);
         assertTrue(fromEmpty.enabled());
         assertTrue(fromEmpty.syncOnJoin());
+        assertTrue(fromEmpty.recipeUpdateTrigger());
     }
 }

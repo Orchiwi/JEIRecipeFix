@@ -44,7 +44,9 @@ public final class JEIRecipeFixCommand implements CommandExecutor, TabCompleter 
                 messages.send(sender, "info-line", Map.of(
                         "recipes", String.valueOf(syncService.recipeCount()),
                         "players", String.valueOf(Bukkit.getOnlinePlayers().size()),
-                        "state", syncService.available() ? "active" : "dormant"));
+                        "state", syncService.available() ? "active" : "dormant",
+                        "trigger", syncService.canTriggerRecipeUpdate() ? "available" : "unavailable",
+                        "failures", String.valueOf(syncService.failureCount())));
             }
             case RESYNC -> handleResync(sender, action.target());
         }

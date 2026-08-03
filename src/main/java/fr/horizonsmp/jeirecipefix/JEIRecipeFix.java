@@ -8,10 +8,12 @@ import fr.horizonsmp.jeirecipefix.listener.PlayerConnectionListener;
 import fr.horizonsmp.jeirecipefix.listener.ResourceReloadListener;
 import fr.horizonsmp.jeirecipefix.nms.NmsRecipeBridge;
 import fr.horizonsmp.jeirecipefix.nms.RecipeBridge;
+import fr.horizonsmp.jeirecipefix.sync.ClientBrand;
 import fr.horizonsmp.jeirecipefix.sync.RecipeSyncService;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Level;
 
 public final class JEIRecipeFix extends JavaPlugin {
 
@@ -42,6 +44,24 @@ public final class JEIRecipeFix extends JavaPlugin {
 
         getLogger().info("JEIRecipeFix enabled (recipe sync "
                 + (bridge.isAvailable() ? "active" : "dormant") + ").");
+
+        // Encode the payloads now rather than on the first join. They are what actually breaks when
+        // a Minecraft update moves something, and building them here turns that into a startup
+        // error in the log instead of a silent no-op that only players notice.
+        warmPayloads();
+    }
+
+    private void warmPayloads() {
+        if (syncService == null || !syncService.available()) {
+            return;
+        }
+        try {
+            syncService.payloadFor(ClientBrand.FABRIC);
+            syncService.payloadFor(ClientBrand.NEOFORGE);
+        } catch (RuntimeException e) {
+            getLogger().log(Level.SEVERE,
+                    "Could not encode this server's recipes; clients will not receive any.", e);
+        }
     }
 
     public void reloadAll() {
@@ -50,6 +70,7 @@ public final class JEIRecipeFix extends JavaPlugin {
         if (messages != null) messages.reload();
         if (syncService != null) {
             syncService.invalidate();
+            warmPayloads();
         }
     }
 

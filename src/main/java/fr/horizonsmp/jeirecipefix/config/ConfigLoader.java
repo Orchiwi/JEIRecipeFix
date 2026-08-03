@@ -16,6 +16,7 @@ public final class ConfigLoader {
                 section.getBoolean("enabled", d.enabled()),
                 section.getBoolean("sync-on-join", d.syncOnJoin()),
                 section.getBoolean("sync-on-datapack-reload", d.syncOnDatapackReload()),
+                section.getBoolean("recipe-update-trigger", d.recipeUpdateTrigger()),
                 section.getBoolean("debug", d.debug()));
     }
 }
