@@ -26,7 +26,13 @@ public final class RecipeSyncService {
      */
     public static final String JEI_CHANNEL_NAMESPACE = "jei:";
 
-    /** Warn above this: the vanilla clientbound payload cap is 1 MiB and the plugin cannot split. */
+    /**
+     * The client refuses a custom payload larger than this while decoding it, and a decode failure
+     * drops the connection. Fabric API can split oversized payloads over its own channel; a plugin
+     * sending raw packets cannot, so past this the recipes simply cannot be delivered.
+     */
+    private static final int MAX_PAYLOAD_BYTES = 1024 * 1024;
+    /** Warn here, while there is still room to notice before hitting the hard limit. */
     private static final int PAYLOAD_WARN_BYTES = 800 * 1024;
 
     private final RecipeBridge bridge;
@@ -104,6 +110,12 @@ public final class RecipeSyncService {
             // that the server sent unusable recipes.
             logger.warning("Not sending recipes to " + player.getName()
                     + ": nothing left to encode (server recipe count: " + bridge.recipeCount() + ").");
+            return false;
+        }
+        if (payload.size() > MAX_PAYLOAD_BYTES) {
+            // Sending it anyway would disconnect the player mid-join. describe() already said so
+            // loudly once; do not repeat it per join.
+            debug("Not sending recipes to " + player.getName() + ": payload over the protocol limit.");
             return false;
         }
         boolean sent;
@@ -190,9 +202,14 @@ public final class RecipeSyncService {
                     + " payload because their serializer is not vanilla and would make the client "
                     + "discard everything: " + String.join(", ", payload.skippedGroups()));
         }
-        if (payload.size() > PAYLOAD_WARN_BYTES) {
-            logger.warning("The " + label + " recipe payload is " + payload.size()
-                    + " bytes, close to the 1 MiB protocol limit; clients may reject it.");
+        if (payload.size() > MAX_PAYLOAD_BYTES) {
+            logger.severe("The " + label + " recipe payload is " + payload.size() + " bytes, over the "
+                    + MAX_PAYLOAD_BYTES + "-byte limit a single custom payload can carry. It will NOT "
+                    + "be sent: a client would drop the connection while decoding it. This server has "
+                    + "more recipes than this plugin can deliver.");
+        } else if (payload.size() > PAYLOAD_WARN_BYTES) {
+            logger.warning("The " + label + " recipe payload is " + payload.size() + " bytes, close to the "
+                    + MAX_PAYLOAD_BYTES + "-byte protocol limit. Past that limit recipes cannot be sent at all.");
         }
         return payload;
     }

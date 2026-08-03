@@ -16,6 +16,8 @@ All notable changes to this project are documented here.
 - Recipes whose serializer is not a vanilla one are left out of the Fabric payload instead of making
   the client throw away every recipe.
 - An empty recipe set is no longer sent; it made recipe viewers report unusable recipes.
+- A recipe set too large for a single custom payload (over 1 MiB encoded) is no longer sent at all.
+  Sending it disconnected the player while their client decoded it; the server log now says so.
 
 ### Changed
 - Recipes are now sent once the client has announced its plugin channels, so the plugin only sends

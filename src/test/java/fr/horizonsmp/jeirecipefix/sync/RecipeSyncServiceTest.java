@@ -25,6 +25,9 @@ class RecipeSyncServiceTest {
     private static final RecipePayload FABRIC_PAYLOAD = new RecipePayload(FABRIC_BYTES, 7, 2, List.of(), 0);
     private static final RecipePayload NEOFORGE_PAYLOAD = new RecipePayload(new byte[] {9}, 7, 1, List.of(), 0);
     private static final RecipePayload EMPTY_PAYLOAD = new RecipePayload(new byte[0], 0, 0, List.of(), 0);
+    /** One byte past what a single custom payload can carry; the client drops the connection decoding it. */
+    private static final RecipePayload OVERSIZED_PAYLOAD =
+            new RecipePayload(new byte[1024 * 1024 + 1], 90000, 21, List.of(), 0);
 
     /** One of JEI's own channels; the service only checks the namespace. */
     private static final String JEI = RecipeSyncService.JEI_CHANNEL_NAMESPACE + "cheat_permission";
@@ -171,6 +174,15 @@ class RecipeSyncServiceTest {
 
         assertFalse(service.syncTo(fabricPlayer(FABRIC_SYNC, JEI)));
         assertEquals(List.of(), calls);
+    }
+
+    @Test
+    void sendsNothingWhenThePayloadIsOverTheProtocolLimit() {
+        RecipeSyncService service = service(bridge(true, true, OVERSIZED_PAYLOAD), PluginConfig.defaults());
+
+        assertFalse(service.syncTo(fabricPlayer(FABRIC_SYNC, JEI)));
+        assertEquals(List.of(), calls);
+        assertEquals(List.of(), notified);
     }
 
     @Test
