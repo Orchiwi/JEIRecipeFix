@@ -30,14 +30,15 @@ public final class JEIRecipeFix extends JavaPlugin {
         if (!bridge.isAvailable()) {
             getLogger().warning("Unsupported server internals; recipe sync disabled. JEIRecipeFix will stay dormant.");
         }
-        this.syncService = new RecipeSyncService(bridge, config::get, this, getLogger());
+        this.messages = new Messages(this);
+        this.syncService = new RecipeSyncService(bridge, config::get, this, getLogger(),
+                player -> messages.send(player, "jei-warning-notice"));
 
         getServer().getPluginManager().registerEvents(
                 new PlayerConnectionListener(this, syncService, config::get), this);
         getServer().getPluginManager().registerEvents(
                 new ResourceReloadListener(syncService, config::get), this);
 
-        this.messages = new Messages(this);
         JEIRecipeFixCommand command = new JEIRecipeFixCommand(this, syncService, messages);
         getCommand("jeirecipefix").setExecutor(command);
         getCommand("jeirecipefix").setTabCompleter(command);

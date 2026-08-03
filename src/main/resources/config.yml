@@ -16,5 +16,12 @@ sync-on-datapack-reload: true
 # Turn this off if a recipe viewer misbehaves; recipes are then only correct after a rejoin.
 recipe-update-trigger: true
 
+# Tell the player that JEI's warning is out of date.
+# JEI prints "this server does not provide recipes" before any plugin can send anything, and it is
+# still on screen after JEI has quietly reloaded with the server's recipes. This sends one chat line
+# saying so, and only to players whose client just received the recipes and is known to run JEI.
+# The wording lives in messages.yml under jei-warning-notice.
+explain-jei-warning: true
+
 # Verbose logging for troubleshooting (per-player brand + recipe counts).
 debug: false

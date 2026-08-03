@@ -27,6 +27,11 @@ All notable changes to this project are documented here.
 
 ### Added
 - `recipe-update-trigger` option in `config.yml` to turn the re-read trigger off.
+- A one-line chat notice telling the player JEI's warning is out of date, sent only to clients that
+  just received the recipes and are known to run JEI. Wording in `messages.yml`
+  (`jei-warning-notice`), switch in `config.yml` (`explain-jei-warning`).
+- `messages.yml` now falls back to the bundled text for keys an older file is missing, instead of
+  sending players the raw message key.
 
 ## [0.1.0-beta.2] - 2026-06-23
 

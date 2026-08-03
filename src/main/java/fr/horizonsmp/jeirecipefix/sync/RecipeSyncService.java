@@ -12,6 +12,7 @@ import java.util.EnumSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 
@@ -35,14 +36,18 @@ public final class RecipeSyncService {
     private final Lazy<RecipePayload> fabricPayload;
     private final Lazy<RecipePayload> neoForgePayload;
 
+    private final Consumer<Player> jeiWarningNotice;
+
     private final Set<UUID> synced = ConcurrentHashMap.newKeySet();
     private final Set<ClientBrand> loggedBrands = EnumSet.noneOf(ClientBrand.class);
 
-    public RecipeSyncService(RecipeBridge bridge, Supplier<PluginConfig> config, Plugin plugin, Logger logger) {
+    public RecipeSyncService(RecipeBridge bridge, Supplier<PluginConfig> config, Plugin plugin,
+                             Logger logger, Consumer<Player> jeiWarningNotice) {
         this.bridge = bridge;
         this.config = config;
         this.plugin = plugin;
         this.logger = logger;
+        this.jeiWarningNotice = jeiWarningNotice;
         this.fabricPayload = new Lazy<>(() -> describe(ClientBrand.FABRIC, bridge.buildFabricPayload()));
         this.neoForgePayload = new Lazy<>(() -> describe(ClientBrand.NEOFORGE, bridge.buildNeoForgePayload()));
     }
@@ -115,6 +120,12 @@ public final class RecipeSyncService {
         }
         if (sent) {
             logSend(player, brand, payload, trigger);
+            if (trigger && config.get().explainJeiWarning() && jeiWarningNotice != null) {
+                // Only when the trigger went out: that is the one case where we know the client runs
+                // JEI, that it saw the warning, and that it has just reloaded with these recipes.
+                // Sent after the packets, so it lands under JEI's own line rather than above it.
+                jeiWarningNotice.accept(player);
+            }
         }
         return sent;
     }

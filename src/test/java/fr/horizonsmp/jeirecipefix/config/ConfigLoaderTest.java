@@ -17,6 +17,7 @@ class ConfigLoaderTest {
                 sync-on-join: false
                 sync-on-datapack-reload: true
                 recipe-update-trigger: false
+                explain-jei-warning: false
                 debug: true
                 """);
 
@@ -26,6 +27,7 @@ class ConfigLoaderTest {
         assertFalse(config.syncOnJoin());
         assertTrue(config.syncOnDatapackReload());
         assertFalse(config.recipeUpdateTrigger());
+        assertFalse(config.explainJeiWarning());
         assertTrue(config.debug());
     }
 
@@ -39,5 +41,6 @@ class ConfigLoaderTest {
         assertTrue(fromEmpty.enabled());
         assertTrue(fromEmpty.syncOnJoin());
         assertTrue(fromEmpty.recipeUpdateTrigger());
+        assertTrue(fromEmpty.explainJeiWarning());
     }
 }

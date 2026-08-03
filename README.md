@@ -24,7 +24,11 @@ JEI builds its recipe list the instant the server's own recipe packet arrives, a
 
 > This … server does not provide recipes to JEI. JEI is showing default recipes from your client…
 
-A moment later JEI reloads by itself, silently, with your server's recipes — that reload is this plugin doing its job. **One warning followed by a silent JEI reload means everything worked.** If the warning appears *twice*, or JEI reports that the server sent unusable recipes, something did go wrong: turn on `debug` in `config.yml` and open an issue.
+A moment later JEI reloads by itself, silently, with your server's recipes — that reload is this plugin doing its job. Because that warning is confusing once it is no longer true, the plugin follows it with one line of its own:
+
+> Recipes synced. You can ignore JEI's warning above — JEI is showing this server's recipes.
+
+**One warning followed by that line means everything worked.** If the warning appears *twice*, or JEI reports that the server sent unusable recipes, something did go wrong: turn on `debug` in `config.yml` and open an issue.
 
 ## Requirements
 
@@ -56,10 +60,13 @@ enabled: true
 sync-on-join: true
 sync-on-datapack-reload: true
 recipe-update-trigger: true
+explain-jei-warning: true
 debug: false
 ```
 
 `recipe-update-trigger` is what makes an already-running JEI re-read the recipes. It is only sent to clients that report both Fabric's recipe-sync channel and JEI, so other mods are left alone. Turning it off means recipes are still sent but JEI will keep showing your client's defaults.
+
+`explain-jei-warning` sends the one-line notice above, to those same clients only. Its wording lives in `messages.yml` under `jei-warning-notice`.
 
 ## Note
 

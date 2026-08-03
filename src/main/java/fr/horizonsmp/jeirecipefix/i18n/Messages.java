@@ -7,6 +7,10 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
 import java.io.File;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 public final class Messages {
@@ -28,6 +32,16 @@ public final class Messages {
             plugin.saveResource("messages.yml", false);
         }
         this.messages = YamlConfiguration.loadConfiguration(file);
+        // Fall back to the bundled file so a key added in a later version still renders on a server
+        // whose messages.yml predates it, instead of sending players the raw key.
+        InputStream bundled = plugin.getResource("messages.yml");
+        if (bundled != null) {
+            try (Reader reader = new InputStreamReader(bundled, StandardCharsets.UTF_8)) {
+                messages.setDefaults(YamlConfiguration.loadConfiguration(reader));
+            } catch (java.io.IOException e) {
+                plugin.getLogger().warning("Could not read the bundled messages.yml: " + e.getMessage());
+            }
+        }
         this.prefix = messages.getString("prefix", "");
     }
 

@@ -32,6 +32,7 @@ class RecipeSyncServiceTest {
 
     private final AtomicInteger fabricBuilds = new AtomicInteger();
     private final List<String> calls = new ArrayList<>();
+    private final List<Player> notified = new ArrayList<>();
 
     private RecipeBridge bridge(boolean available, boolean canTrigger, RecipePayload fabric) {
         return new RecipeBridge() {
@@ -61,7 +62,7 @@ class RecipeSyncServiceTest {
     }
 
     private RecipeSyncService service(RecipeBridge bridge, PluginConfig config) {
-        return new RecipeSyncService(bridge, () -> config, null, Logger.getAnonymousLogger());
+        return new RecipeSyncService(bridge, () -> config, null, Logger.getAnonymousLogger(), notified::add);
     }
 
     /** A Player is far too wide to stub by hand; only these few methods are on the sync path. */
@@ -94,7 +95,7 @@ class RecipeSyncServiceTest {
         assertTrue(enabled.shouldSync(ClientBrand.NEOFORGE));
         assertFalse(enabled.shouldSync(ClientBrand.OTHER));
 
-        RecipeSyncService disabled = service(true, new PluginConfig(false, true, true, true, false));
+        RecipeSyncService disabled = service(true, new PluginConfig(false, true, true, true, true, false));
         assertFalse(disabled.shouldSync(ClientBrand.FABRIC));
 
         RecipeSyncService unavailable = service(false, PluginConfig.defaults());
@@ -136,13 +137,32 @@ class RecipeSyncServiceTest {
 
     @Test
     void neverTriggersWhenDisabledInConfigOrUnsupportedByTheServer() {
-        PluginConfig triggerOff = new PluginConfig(true, true, true, false, false);
+        PluginConfig triggerOff = new PluginConfig(true, true, true, false, true, false);
         service(true, triggerOff).syncTo(fabricPlayer(FABRIC_SYNC, JEI));
 
         RecipeBridge noTrigger = bridge(true, false, FABRIC_PAYLOAD);
         service(noTrigger, PluginConfig.defaults()).syncTo(fabricPlayer(FABRIC_SYNC, JEI));
 
         assertEquals(List.of("fabric:trigger=false", "fabric:trigger=false"), calls);
+    }
+
+    @Test
+    void explainsJeiSWarningOnlyToClientsThatGotTheTrigger() {
+        RecipeSyncService service = service(true, PluginConfig.defaults());
+
+        service.syncTo(fabricPlayer(FABRIC_SYNC));
+        assertEquals(List.of(), notified);
+
+        Player jei = fabricPlayer(FABRIC_SYNC, JEI);
+        service.syncTo(jei);
+        assertEquals(List.of(jei), notified);
+    }
+
+    @Test
+    void doesNotExplainJeiSWarningWhenTurnedOff() {
+        PluginConfig noticeOff = new PluginConfig(true, true, true, true, false, false);
+        service(true, noticeOff).syncTo(fabricPlayer(FABRIC_SYNC, JEI));
+        assertEquals(List.of(), notified);
     }
 
     @Test
