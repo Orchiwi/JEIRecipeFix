@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here.
 
-## [0.1.0-beta.3] - 2026-08-03
+## [0.2.0] - 2026-08-03
 
 ### Fixed
 - JEI showed *"This server does not provide recipes to JEI"* and kept using your client's own
