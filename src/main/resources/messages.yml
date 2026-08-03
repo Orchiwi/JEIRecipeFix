@@ -11,4 +11,4 @@ unknown-subcommand: "&cUnknown subcommand. Use &e/jrf help&c."
 help: "&bJEIRecipeFix: &e/jrf resync [player|all]&7, &e/jrf reload&7, &e/jrf info"
 # Sent only to players whose client just received the recipes and is known to have JEI, right after
 # JEI's own (by then outdated) warning that the server sends no recipes.
-jei-warning-notice: "&aRecipes synced. &7You can ignore JEI's warning above — JEI is showing this server's recipes."
+jei-warning-notice: "&aRecipes synced. &7Ignore the JEI warning above: the recipes you see are the ones this server uses."

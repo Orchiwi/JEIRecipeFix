@@ -2,6 +2,7 @@ package fr.horizonsmp.jeirecipefix;
 
 import fr.horizonsmp.jeirecipefix.command.JEIRecipeFixCommand;
 import fr.horizonsmp.jeirecipefix.config.ConfigLoader;
+import fr.horizonsmp.jeirecipefix.config.ConfigUpdater;
 import fr.horizonsmp.jeirecipefix.config.PluginConfig;
 import fr.horizonsmp.jeirecipefix.i18n.Messages;
 import fr.horizonsmp.jeirecipefix.listener.PlayerConnectionListener;
@@ -12,6 +13,13 @@ import fr.horizonsmp.jeirecipefix.sync.ClientBrand;
 import fr.horizonsmp.jeirecipefix.sync.RecipeSyncService;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 
@@ -24,6 +32,8 @@ public final class JEIRecipeFix extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        addSettingsFromNewerVersions();
+        reloadConfig();
         reloadPluginConfig();
 
         RecipeBridge bridge = new NmsRecipeBridge(this);
@@ -50,6 +60,23 @@ public final class JEIRecipeFix extends JavaPlugin {
         // a Minecraft update moves something, and building them here turns that into a startup
         // error in the log instead of a silent no-op that only players notice.
         warmPayloads();
+    }
+
+    /** Brings an older config.yml up to date with the settings this version knows about. */
+    private void addSettingsFromNewerVersions() {
+        InputStream bundled = getResource("config.yml");
+        if (bundled == null) {
+            return;
+        }
+        try (Reader reader = new InputStreamReader(bundled, StandardCharsets.UTF_8)) {
+            List<String> added = ConfigUpdater.addMissingKeys(reader, new File(getDataFolder(), "config.yml"));
+            if (!added.isEmpty()) {
+                getLogger().info("Added " + added.size() + " new setting(s) to config.yml: "
+                        + String.join(", ", added));
+            }
+        } catch (IOException e) {
+            getLogger().warning("Could not bring config.yml up to date: " + e.getMessage());
+        }
     }
 
     private void warmPayloads() {

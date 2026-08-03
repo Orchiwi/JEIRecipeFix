@@ -26,7 +26,7 @@ JEI builds its recipe list the instant the server's own recipe packet arrives, a
 
 A moment later JEI reloads by itself, silently, with your server's recipes — that reload is this plugin doing its job. Because that warning is confusing once it is no longer true, the plugin follows it with one line of its own:
 
-> Recipes synced. You can ignore JEI's warning above — JEI is showing this server's recipes.
+> Recipes synced. Ignore the JEI warning above: the recipes you see are the ones this server uses.
 
 **One warning followed by that line means everything worked.** If the warning appears *twice*, or JEI reports that the server sent unusable recipes, something did go wrong: turn on `debug` in `config.yml` and open an issue.
 

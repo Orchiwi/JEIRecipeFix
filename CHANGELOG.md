@@ -18,6 +18,9 @@ All notable changes to this project are documented here.
 - An empty recipe set is no longer sent; it made recipe viewers report unusable recipes.
 - A recipe set too large for a single custom payload (over 1 MiB encoded) is no longer sent at all.
   Sending it disconnected the player while their client decoded it; the server log now says so.
+- A message missing from an older `messages.yml` was sent to players as its own key
+  (`jei-warning-notice`) instead of the actual text.
+- `/jrf info` reported `active` even with `enabled: false`, which read as if everything was fine.
 
 ### Changed
 - Recipes are now sent once the client has announced its plugin channels, so the plugin only sends
@@ -32,8 +35,9 @@ All notable changes to this project are documented here.
 - A one-line chat notice telling the player JEI's warning is out of date, sent only to clients that
   just received the recipes and are known to run JEI. Wording in `messages.yml`
   (`jei-warning-notice`), switch in `config.yml` (`explain-jei-warning`).
-- `messages.yml` now falls back to the bundled text for keys an older file is missing, instead of
-  sending players the raw message key.
+- `config.yml` and `messages.yml` are brought up to date on startup: settings and messages added in
+  a newer version are written into your existing files, with their comments, and everything you have
+  already set is left exactly as it was. The server log lists what was added.
 
 ## [0.1.0-beta.2] - 2026-06-23
 

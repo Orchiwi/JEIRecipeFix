@@ -44,13 +44,21 @@ public final class JEIRecipeFixCommand implements CommandExecutor, TabCompleter 
                 messages.send(sender, "info-line", Map.of(
                         "recipes", String.valueOf(syncService.recipeCount()),
                         "players", String.valueOf(Bukkit.getOnlinePlayers().size()),
-                        "state", syncService.available() ? "active" : "dormant",
+                        "state", syncState(),
                         "trigger", syncService.canTriggerRecipeUpdate() ? "available" : "unavailable",
                         "failures", String.valueOf(syncService.failureCount())));
             }
             case RESYNC -> handleResync(sender, action.target());
         }
         return true;
+    }
+
+    /** "active" used to be reported even with the master switch off, which read as everything is fine. */
+    private String syncState() {
+        if (!plugin.pluginConfig().enabled()) {
+            return "disabled in config";
+        }
+        return syncService.available() ? "active" : "dormant";
     }
 
     private void handleResync(CommandSender sender, String target) {
