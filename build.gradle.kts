@@ -40,6 +40,9 @@ tasks {
 
     processResources {
         val props = mapOf("version" to version)
+        // Without this the task stays up-to-date across a version bump and bakes the old version
+        // into plugin.yml, so the jar reports a version it is not.
+        inputs.property("version", version)
         filesMatching("plugin.yml") {
             expand(props)
         }
@@ -56,8 +59,9 @@ modrinth {
     versionNumber.set(project.version.toString())
     versionType.set(resolveVersionType(project.version.toString()))
     uploadFile.set(tasks.jar.flatMap { it.archiveFile })
+    // 1.21.2 is absent on purpose: Paper never published a build for it.
     gameVersions.addAll(
-        "1.21.2", "1.21.3", "1.21.4", "1.21.5", "1.21.6", "1.21.7",
+        "1.21.3", "1.21.4", "1.21.5", "1.21.6", "1.21.7",
         "1.21.8", "1.21.9", "1.21.10", "1.21.11", "26.1", "26.1.1", "26.1.2", "26.2"
     )
     loaders.addAll("paper", "purpur", "folia")
