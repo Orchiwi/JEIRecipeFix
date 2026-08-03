@@ -71,6 +71,11 @@ public final class NmsRecipeBridge implements RecipeBridge {
     private Constructor<?> recipeBookAddCtor; // ClientboundRecipeBookAddPacket(List, boolean)
     private Constructor<?> recipeBookEntryCtor; // Entry(RecipeDisplayEntry, boolean notification, boolean highlight)
     private Object recipeBookEntryStreamCodec; // Entry.STREAM_CODEC, used to measure a batch
+    private Constructor<?> displayEntryCtor;  // RecipeDisplayEntry(id, display, group, category, craftingRequirements)
+    private Method displayEntryId;
+    private Method displayEntryDisplay;
+    private Method displayEntryGroup;
+    private Method displayEntryCategory;
     private boolean recipeBookAvailable;
     private volatile List<Object> recipeBookPackets = List.of();
     private volatile RecipeBookStats recipeBookStats = new RecipeBookStats(0, 0, 0);
@@ -206,6 +211,20 @@ public final class NmsRecipeBridge implements RecipeBridge {
             this.recipeBookAddCtor = Reflect.ctor(addPacket, List.class, boolean.class);
             this.recipeBookEntryCtor = Reflect.ctor(entry, displayEntry, boolean.class, boolean.class);
             this.recipeBookEntryStreamCodec = Reflect.staticField(entry, "STREAM_CODEC");
+
+            // Needed to rebuild each display without its crafting requirements; see
+            // withoutCraftingRequirements. Resolved here so that if it ever fails, the recipe book
+            // is disabled rather than sent in a form that can disconnect a player.
+            Class<?> recipeDisplay = Reflect.clazz("net.minecraft.world.item.crafting.display.RecipeDisplay");
+            Class<?> recipeDisplayId = Reflect.clazz("net.minecraft.world.item.crafting.display.RecipeDisplayId");
+            Class<?> bookCategory = Reflect.clazz("net.minecraft.world.item.crafting.RecipeBookCategory");
+            this.displayEntryCtor = Reflect.ctor(displayEntry, recipeDisplayId, recipeDisplay,
+                    java.util.OptionalInt.class, bookCategory, java.util.Optional.class);
+            this.displayEntryId = Reflect.method(displayEntry, "id");
+            this.displayEntryDisplay = Reflect.method(displayEntry, "display");
+            this.displayEntryGroup = Reflect.method(displayEntry, "group");
+            this.displayEntryCategory = Reflect.method(displayEntry, "category");
+
             this.recipeBookAvailable = true;
             buildRecipeBookPackets(recipeManager);
             RecipeBookStats stats = recipeBookStats;
@@ -403,7 +422,7 @@ public final class NmsRecipeBridge implements RecipeBridge {
         for (Object holder : (Collection<?>) Reflect.call(getRecipes, recipeManager)) {
             Object id = Reflect.call(holderId, holder);
             Reflect.call(listDisplaysForRecipe, recipeManager, id,
-                    (java.util.function.Consumer<Object>) displays::add);
+                    (java.util.function.Consumer<Object>) d -> displays.add(withoutCraftingRequirements(d)));
         }
 
         List<Object> packets = new ArrayList<>();
@@ -435,6 +454,32 @@ public final class NmsRecipeBridge implements RecipeBridge {
         this.recipeBookPackets = List.copyOf(packets);
         this.recipeBookStats = new RecipeBookStats(displays.size(), packets.size(), total);
         this.recipeBookDirty = false;
+    }
+
+    /**
+     * Returns the display with its crafting requirements dropped.
+     *
+     * <p>That field is the only part of the recipe-book packet whose decoding makes the client
+     * resolve an item tag, and it does so with no fallback: an unknown tag throws, and the client
+     * drops the connection. Vanilla gets away with it because it only ever sends the handful of
+     * recipes a player has unlocked; sending every recipe on the server means the client has to
+     * resolve every tag any recipe mentions, and REI's own local-recipe fallback replaces the
+     * client's tag set with one built from its own files, so server-only tags stop existing.
+     *
+     * <p>Nothing is lost: the field only drives the vanilla recipe book's "can I craft this"
+     * shading, and recipe viewers read the display itself.
+     */
+    private Object withoutCraftingRequirements(Object display) {
+        try {
+            return displayEntryCtor.newInstance(
+                    Reflect.call(displayEntryId, display),
+                    Reflect.call(displayEntryDisplay, display),
+                    Reflect.call(displayEntryGroup, display),
+                    Reflect.call(displayEntryCategory, display),
+                    java.util.Optional.empty());
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Cannot rebuild a recipe display", e);
+        }
     }
 
     private Object newRecipeBookEntry(Object display) {
