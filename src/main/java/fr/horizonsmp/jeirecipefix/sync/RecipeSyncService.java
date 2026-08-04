@@ -51,6 +51,7 @@ public final class RecipeSyncService {
     private final Set<UUID> sentPayload = ConcurrentHashMap.newKeySet();
     private final Set<UUID> sentTrigger = ConcurrentHashMap.newKeySet();
     private final Set<UUID> sentRecipeBook = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> notified = ConcurrentHashMap.newKeySet();
     private final Set<ClientBrand> loggedBrands = EnumSet.noneOf(ClientBrand.class);
 
     public RecipeSyncService(RecipeBridge bridge, Supplier<PluginConfig> config, Plugin plugin,
@@ -179,12 +180,7 @@ public final class RecipeSyncService {
         }
         if (sent) {
             logSend(player, brand, payload, trigger, recipeBook);
-            if (trigger && config.get().explainJeiWarning() && jeiWarningNotice != null) {
-                // Only when the trigger went out: that is the one case where we know the client runs
-                // JEI, that it saw the warning, and that it has just reloaded with these recipes.
-                // Sent after the packets, so it lands under JEI's own line rather than above it.
-                jeiWarningNotice.accept(player);
-            }
+            notifyOnce(player, trigger || recipeBook);
         }
         return sent;
     }
@@ -202,6 +198,21 @@ public final class RecipeSyncService {
         return topUp(player);
     }
 
+    /**
+     * Tells the player their recipes are in place. Only for a client we actually identified as
+     * running a recipe viewer — either it took the JEI re-read trigger or it took the recipe book —
+     * so a modded client without one is not sent chat it has no use for. Once per connection: the
+     * join path, the late top-up and the settle pass can all deliver to the same player.
+     */
+    private void notifyOnce(Player player, boolean servedAViewer) {
+        if (!servedAViewer || !config.get().explainJeiWarning() || jeiWarningNotice == null) {
+            return;
+        }
+        if (notified.add(player.getUniqueId())) {
+            jeiWarningNotice.accept(player);
+        }
+    }
+
     /** Sends whatever this client has since become eligible for, without re-sending the recipes. */
     private boolean topUp(Player player) {
         UUID id = player.getUniqueId();
@@ -216,6 +227,7 @@ public final class RecipeSyncService {
             did = true;
             debug("Sent the recipe book to " + player.getName() + " after it reported a viewer that needs it");
         }
+        notifyOnce(player, did);
         return did;
     }
 
@@ -224,6 +236,7 @@ public final class RecipeSyncService {
         sentPayload.remove(id);
         sentTrigger.remove(id);
         sentRecipeBook.remove(id);
+        notified.remove(id);
     }
 
     public void resyncAll() {

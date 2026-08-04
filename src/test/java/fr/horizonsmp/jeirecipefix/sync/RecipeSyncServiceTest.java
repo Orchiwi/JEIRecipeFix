@@ -184,7 +184,7 @@ class RecipeSyncServiceTest {
     }
 
     @Test
-    void explainsJeiSWarningOnlyToClientsThatGotTheTrigger() {
+    void notifiesOnlyClientsThatWereActuallyServed() {
         RecipeSyncService service = service(true, PluginConfig.defaults());
 
         service.syncTo(fabricPlayer(FABRIC_SYNC));
@@ -193,6 +193,15 @@ class RecipeSyncServiceTest {
         Player jei = fabricPlayer(FABRIC_SYNC, JEI);
         service.syncTo(jei);
         assertEquals(List.of(jei), notified);
+
+        // A REI client takes the recipe book rather than the trigger, and is just as much served.
+        Player rei = fabricPlayer(FABRIC_SYNC, REI);
+        service.syncTo(rei);
+        assertEquals(List.of(jei, rei), notified);
+
+        // Once per connection, however many times it is served.
+        service.syncTo(rei);
+        assertEquals(List.of(jei, rei), notified);
     }
 
     @Test
