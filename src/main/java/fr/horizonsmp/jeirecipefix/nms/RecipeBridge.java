@@ -37,6 +37,12 @@ public interface RecipeBridge {
     /** Sends a pre-built NeoForge payload (plus the tags packet) to the player. */
     boolean sendNeoForge(Player player, byte[] payload);
 
+    /**
+     * Sends only the vanilla recipe-update packet. Useful when a client turns out to run JEI after
+     * the recipes were already delivered: the payload is still on the client, it just needs re-reading.
+     */
+    boolean sendRecipeUpdate(Player player);
+
     /** True when the vanilla recipe-book packets could be built on this server version. */
     boolean canSendRecipeBook();
 

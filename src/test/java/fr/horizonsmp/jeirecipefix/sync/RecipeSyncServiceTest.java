@@ -62,6 +62,12 @@ class RecipeSyncServiceTest {
                 return true;
             }
 
+            @Override
+            public boolean sendRecipeUpdate(Player player) {
+                calls.add("trigger-only");
+                return true;
+            }
+
             @Override public boolean canSendRecipeBook() { return true; }
             @Override public RecipeBookStats recipeBookStats() { return new RecipeBookStats(7, 1, 100); }
             @Override public void invalidateRecipeBook() { }
@@ -90,7 +96,10 @@ class RecipeSyncServiceTest {
 
     /** A Player is far too wide to stub by hand; only these few methods are on the sync path. */
     private static Player player(String brand, Set<String> channels) {
-        UUID id = UUID.randomUUID();
+        return player(brand, channels, UUID.randomUUID());
+    }
+
+    private static Player player(String brand, Set<String> channels, UUID id) {
         return (Player) Proxy.newProxyInstance(
                 RecipeSyncServiceTest.class.getClassLoader(),
                 new Class<?>[] {Player.class},
@@ -109,6 +118,11 @@ class RecipeSyncServiceTest {
 
     private static Player fabricPlayer(String... channels) {
         return player("fabric", Set.of(channels));
+    }
+
+    /** The same connection (same UUID) reporting more channels than it did before. */
+    private static Player playerWithId(Player original, String... channels) {
+        return player("fabric", Set.of(channels), original.getUniqueId());
     }
 
     @Test
@@ -225,6 +239,28 @@ class RecipeSyncServiceTest {
         assertFalse(service.syncTo(fabricPlayer(FABRIC_SYNC, JEI)));
         assertEquals(List.of(), calls);
         assertEquals(List.of(), notified);
+    }
+
+    @Test
+    void topsUpTheTriggerAndBookWhenTheClientReportsThemLate() {
+        RecipeSyncService service = service(true, withRecipeBook(RecipeBookMode.AUTO));
+
+        // The recipes go out before the client has said which viewer it runs.
+        Player bare = fabricPlayer(FABRIC_SYNC);
+        assertTrue(service.syncOnceTo(bare));
+        assertEquals(List.of("fabric:trigger=false"), calls);
+
+        // Same connection, now reporting JEI and REI: send what it has become eligible for, and do
+        // not re-send the recipes.
+        calls.clear();
+        Player later = playerWithId(bare, FABRIC_SYNC, JEI, REI);
+        assertTrue(service.syncOnceTo(later));
+        assertEquals(List.of("trigger-only", "recipe-book"), calls);
+
+        // Nothing left to do on a third pass.
+        calls.clear();
+        assertFalse(service.syncOnceTo(later));
+        assertEquals(List.of(), calls);
     }
 
     @Test

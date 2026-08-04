@@ -397,6 +397,15 @@ public final class NmsRecipeBridge implements RecipeBridge {
     }
 
     @Override
+    public boolean sendRecipeUpdate(Player player) {
+        if (!recipeUpdateTriggerAvailable) {
+            return false;
+        }
+        Object connection = connectionOf(player);
+        return connection != null && sendRecipeUpdateTrigger(player, connection);
+    }
+
+    @Override
     public boolean canSendRecipeBook() {
         return recipeBookAvailable;
     }

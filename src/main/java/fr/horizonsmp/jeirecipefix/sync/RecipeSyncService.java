@@ -46,7 +46,11 @@ public final class RecipeSyncService {
 
     private final Consumer<Player> jeiWarningNotice;
 
-    private final Set<UUID> synced = ConcurrentHashMap.newKeySet();
+    // Tracked per piece, not per player: a client announces its channels in bursts, so the recipe
+    // book or the JEI trigger can become applicable a moment after the recipes themselves went out.
+    private final Set<UUID> sentPayload = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> sentTrigger = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> sentRecipeBook = ConcurrentHashMap.newKeySet();
     private final Set<ClientBrand> loggedBrands = EnumSet.noneOf(ClientBrand.class);
 
     public RecipeSyncService(RecipeBridge bridge, Supplier<PluginConfig> config, Plugin plugin,
@@ -160,9 +164,18 @@ public final class RecipeSyncService {
                 return false;
             }
         }
+        if (sent) {
+            sentPayload.add(player.getUniqueId());
+            if (trigger) {
+                sentTrigger.add(player.getUniqueId());
+            }
+        }
         boolean recipeBook = false;
         if (sent && shouldSendRecipeBook(player)) {
             recipeBook = bridge.sendRecipeBook(player);
+            if (recipeBook) {
+                sentRecipeBook.add(player.getUniqueId());
+            }
         }
         if (sent) {
             logSend(player, brand, payload, trigger, recipeBook);
@@ -177,23 +190,40 @@ public final class RecipeSyncService {
     }
 
     /**
-     * Join-path sync: sends at most once per connection, so the join fallback and the channel path
-     * cannot send the payload twice. A failed attempt does not count, so the fallback still retries.
+     * Join-path sync. The recipes themselves go out once per connection, but the pieces that depend
+     * on what the client reported — the JEI re-read trigger and the recipe book — are topped up if
+     * the client announces the channel for them later. Deciding once, at the moment the recipes were
+     * sent, silently left those clients unserved until someone ran /jrf resync.
      */
     public boolean syncOnceTo(Player player) {
+        if (!sentPayload.contains(player.getUniqueId())) {
+            return syncTo(player);
+        }
+        return topUp(player);
+    }
+
+    /** Sends whatever this client has since become eligible for, without re-sending the recipes. */
+    private boolean topUp(Player player) {
         UUID id = player.getUniqueId();
-        if (synced.contains(id)) {
-            return false;
+        boolean did = false;
+        if (!sentTrigger.contains(id) && shouldTriggerRecipeUpdate(player) && bridge.sendRecipeUpdate(player)) {
+            sentTrigger.add(id);
+            did = true;
+            debug("Sent the recipe-update trigger to " + player.getName() + " after it reported JEI");
         }
-        boolean sent = syncTo(player);
-        if (sent) {
-            synced.add(id);
+        if (!sentRecipeBook.contains(id) && shouldSendRecipeBook(player) && bridge.sendRecipeBook(player)) {
+            sentRecipeBook.add(id);
+            did = true;
+            debug("Sent the recipe book to " + player.getName() + " after it reported a viewer that needs it");
         }
-        return sent;
+        return did;
     }
 
     public void forget(Player player) {
-        synced.remove(player.getUniqueId());
+        UUID id = player.getUniqueId();
+        sentPayload.remove(id);
+        sentTrigger.remove(id);
+        sentRecipeBook.remove(id);
     }
 
     public void resyncAll() {

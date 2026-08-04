@@ -53,7 +53,7 @@ public final class PlayerConnectionListener implements Listener {
         if (!config.get().syncOnJoin()) {
             return;
         }
-        if (!RecipeSyncService.FABRIC_RECIPE_SYNC_CHANNEL.equals(event.getChannel())) {
+        if (!isInteresting(event.getChannel())) {
             return;
         }
         Player player = event.getPlayer();
@@ -65,6 +65,17 @@ public final class PlayerConnectionListener implements Listener {
         // A tick of slack: the client announces its channels one at a time, so the rest of the burst
         // — JEI's own channel among them — has not been recorded yet when this fires.
         player.getScheduler().runDelayed(plugin, task -> syncService.syncOnceTo(player), null, CHANNEL_SETTLE_TICKS);
+    }
+
+    /**
+     * Channels that change what this client should be sent: the one that carries the recipes, and
+     * the ones that identify which recipe viewer is installed. They can arrive in separate bursts,
+     * so any of them is a reason to re-check.
+     */
+    private static boolean isInteresting(String channel) {
+        return RecipeSyncService.FABRIC_RECIPE_SYNC_CHANNEL.equals(channel)
+                || channel.startsWith(RecipeSyncService.JEI_CHANNEL_NAMESPACE)
+                || channel.startsWith(RecipeSyncService.REI_CHANNEL_NAMESPACE);
     }
 
     @EventHandler
