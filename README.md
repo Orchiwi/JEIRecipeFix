@@ -1,14 +1,14 @@
 # JEIRecipeFix
 
-**Makes JEI work again on Paper, Purpur and Folia servers.**
+**Makes JEI and REI work again on Paper, Purpur and Folia servers.**
 
-Since Minecraft **1.21.2**, servers no longer send recipe data to clients. On a plugin-based server (Paper / Purpur / Folia) this means **JEI** shows your client's built-in recipes instead of the server's — it simply can't see what the server can craft. JEI's own recommendation is to install JEI on the server, but JEI is a mod and cannot run on a plugin server.
+Since Minecraft **1.21.2**, servers no longer send recipe data to clients. On a plugin-based server (Paper / Purpur / Folia) this means **JEI** and **REI** show your client's built-in recipes instead of the server's — they simply can't see what the server can craft. Their own recommendation is to install them on the server, but they are mods and cannot run on a plugin server.
 
-**JEIRecipeFix fixes this from the server side.** It sends your server's recipes the same way a mod loader would — with **no client mod to install** and **no mod loader on the server**. Players just connect with JEI and it works.
+**JEIRecipeFix fixes this from the server side.** It sends your server's recipes the same way a mod loader would — with **no client mod to install** and **no mod loader on the server**. Players just connect and it works.
 
 ## Features
 
-- Restores recipe lookups in **JEI**, on **Fabric** and **NeoForge** clients.
+- Restores recipe lookups in **JEI** (Fabric and NeoForge) and **REI** (Fabric).
 - **Zero setup** — install the plugin and players just connect; recipes are sent automatically on join.
 - Covers **vanilla, datapack and other plugins'** recipes, and refreshes automatically after a datapack reload.
 - A **single jar** for the whole **1.21.3 → 26.2** range.
@@ -40,8 +40,13 @@ A moment later JEI reloads by itself, silently, with your server's recipes — t
 
 ### Other recipe viewers
 
-- **REI** is not supported. It does not read the mod loader's recipe sync — it uses its own protocol, which only a REI server mod can speak.
 - **EMI** has no published build for Minecraft 1.21.2 or newer yet, so it is untested.
+
+### A note for REI users
+
+REI does not read the recipe sync JEI uses; it builds its list from the server's recipe book, and a server normally sends only the recipes you have already unlocked. So for REI the plugin sends the **whole** recipe book, which has one visible side effect: your vanilla recipe book will list every recipe as known. Nothing is actually unlocked server-side and it is not a crafting exploit — the server still checks what you know when you click a recipe.
+
+By default this is sent only to clients that report REI, which a server can only detect on Fabric. A NeoForge client running REI needs `recipe-book-sync: all`. Set it to `off` if you would rather keep the vanilla recipe book untouched, at the cost of REI showing your client's own recipes instead of the server's.
 
 ## Commands
 
@@ -62,13 +67,18 @@ enabled: true
 sync-on-join: true
 sync-on-datapack-reload: true
 recipe-update-trigger: true
+recipe-book-sync: auto
 explain-jei-warning: true
 debug: false
 ```
 
 `recipe-update-trigger` is what makes an already-running JEI re-read the recipes. It is only sent to clients that report both Fabric's recipe-sync channel and JEI, so other mods are left alone. Turning it off means recipes are still sent but JEI will keep showing your client's defaults.
 
-`explain-jei-warning` sends the one-line notice above, to those same clients only. Its wording lives in `messages.yml` under `jei-warning-notice`.
+`recipe-book-sync` decides who receives the full recipe book: `auto` (only clients reporting REI), `all` (every modded client, for viewers this plugin cannot detect), or `off`.
+
+`explain-jei-warning` sends the one-line notice above, only to players whose client actually received the recipes and was identified as running a recipe viewer. Its wording lives in `messages.yml` under `jei-warning-notice`.
+
+New settings and messages are written into your existing `config.yml` and `messages.yml` when you update; anything you have already changed is left alone.
 
 ## Note
 

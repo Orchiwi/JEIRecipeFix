@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented here.
 
+## [0.3.0] - 2026-08-04
+
+### Added
+- **REI support.** REI does not read the recipe sync JEI uses — it builds its list from the server's
+  recipe book, and a server only ever sends the recipes a player has already unlocked, which is why
+  REI showed nothing. The plugin now sends the full recipe book to clients that report REI, and REI
+  shows the server's recipes, datapack and plugin ones included.
+- `recipe-book-sync` in `config.yml` (`auto` / `all` / `off`) decides who receives it. `auto` limits
+  it to clients reporting REI, because it also fills the player's own vanilla recipe book.
+- New settings and messages are written into your existing `config.yml` and `messages.yml` on
+  startup, with their comments; anything you have already set is left untouched.
+
+### Fixed
+- The confirmation in chat now reaches REI players too, not only JEI ones.
+- The re-read trigger and the recipe book are sent even when the client reports its recipe viewer a
+  moment after its recipes were delivered. Previously that decision was made once and never revisited,
+  so whether a player was served came down to the order of a set on their client.
+- Recipes are re-sent after respawn, where the server replaces the recipe book wholesale.
+
 ## [0.2.0] - 2026-08-03
 
 ### Fixed
