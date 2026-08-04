@@ -77,6 +77,8 @@ public final class NmsRecipeBridge implements RecipeBridge {
     private Method displayEntryGroup;
     private Method displayEntryCategory;
     private boolean recipeBookAvailable;
+    private Constructor<?> recipeBookRemoveCtor; // ClientboundRecipeBookRemovePacket(List<RecipeDisplayId>)
+    private volatile List<Object> recipeBookRemovePackets = List.of();
     private volatile List<Object> recipeBookPackets = List.of();
     private volatile RecipeBookStats recipeBookStats = new RecipeBookStats(0, 0, 0);
     private volatile boolean recipeBookDirty;
@@ -224,6 +226,9 @@ public final class NmsRecipeBridge implements RecipeBridge {
             this.displayEntryDisplay = Reflect.method(displayEntry, "display");
             this.displayEntryGroup = Reflect.method(displayEntry, "group");
             this.displayEntryCategory = Reflect.method(displayEntry, "category");
+            this.recipeBookRemoveCtor = Reflect.ctor(
+                    Reflect.clazz("net.minecraft.network.protocol.game.ClientboundRecipeBookRemovePacket"),
+                    List.class);
 
             this.recipeBookAvailable = true;
             buildRecipeBookPackets(recipeManager);
@@ -461,6 +466,7 @@ public final class NmsRecipeBridge implements RecipeBridge {
             packets.add(newRecipeBookPacket(batch));
         }
         this.recipeBookPackets = List.copyOf(packets);
+        this.recipeBookRemovePackets = buildRemovePackets(displays);
         this.recipeBookStats = new RecipeBookStats(displays.size(), packets.size(), total);
         this.recipeBookDirty = false;
     }
@@ -489,6 +495,30 @@ public final class NmsRecipeBridge implements RecipeBridge {
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("Cannot rebuild a recipe display", e);
         }
+    }
+
+    /**
+     * Remove packets covering exactly the displays we are about to add. REI keeps no per-display
+     * identity of its own and does not deduplicate, so without removing first, a second send would
+     * show every recipe twice; with it, sending any number of times leaves exactly one copy.
+     */
+    private List<Object> buildRemovePackets(List<Object> displays) {
+        List<Object> ids = new ArrayList<>(displays.size());
+        for (Object display : displays) {
+            ids.add(Reflect.call(displayEntryId, display));
+        }
+        List<Object> packets = new ArrayList<>();
+        // The same batching budget as the adds: an id is a varint, so these are far smaller.
+        int perBatch = Math.max(1, ids.size() / Math.max(1, recipeBookPackets.size()));
+        for (int from = 0; from < ids.size(); from += perBatch) {
+            List<Object> batch = List.copyOf(ids.subList(from, Math.min(from + perBatch, ids.size())));
+            try {
+                packets.add(recipeBookRemoveCtor.newInstance(batch));
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException("Cannot build ClientboundRecipeBookRemovePacket", e);
+            }
+        }
+        return List.copyOf(packets);
     }
 
     private Object newRecipeBookEntry(Object display) {
@@ -526,8 +556,20 @@ public final class NmsRecipeBridge implements RecipeBridge {
             if (connection == null) {
                 return false;
             }
+            // Clear our own previous entries first so repeat sends cannot duplicate anything.
+            for (Object packet : recipeBookRemovePackets) {
+                sendPacket(connection, packet);
+            }
             for (Object packet : packets) {
                 sendPacket(connection, packet);
+            }
+            // REI queues each batch as a job and only runs the queue during a reload, with its
+            // fillers populated. Left alone, entries delivered during the join storm are queued while
+            // the fillers are cleared and quietly amount to nothing. A recipe-update packet right
+            // after gives REI a clean reload to consume them in, which is what /jrf resync was
+            // accidentally providing.
+            if (recipeUpdateTriggerAvailable) {
+                sendRecipeUpdateTrigger(player, connection);
             }
             return true;
         } catch (RuntimeException e) {

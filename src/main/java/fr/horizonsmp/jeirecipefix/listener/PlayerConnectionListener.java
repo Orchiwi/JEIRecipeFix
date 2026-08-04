@@ -20,6 +20,12 @@ public final class PlayerConnectionListener implements Listener {
     private static final long FALLBACK_DELAY_TICKS = 40L;
     /** The client announces all its channels in one burst, so let the rest of it land before deciding. */
     private static final long CHANNEL_SETTLE_TICKS = 1L;
+    /**
+     * REI runs its own plugin reload a few seconds after join, which throws away every display it
+     * holds. One repeat pass afterwards restores ours; it is free of duplicates because a send
+     * removes its own previous entries first.
+     */
+    private static final long REI_SETTLE_TICKS = 200L;
 
     private final Plugin plugin;
     private final RecipeSyncService syncService;
@@ -46,6 +52,7 @@ public final class PlayerConnectionListener implements Listener {
         // the payload at all and whether the recipe-update trigger is wanted. This delayed attempt
         // is only the fallback for a client that never announces anything.
         player.getScheduler().runDelayed(plugin, task -> syncService.syncOnceTo(player), null, FALLBACK_DELAY_TICKS);
+        player.getScheduler().runDelayed(plugin, task -> syncService.resendRecipeBook(player), null, REI_SETTLE_TICKS);
     }
 
     @EventHandler
