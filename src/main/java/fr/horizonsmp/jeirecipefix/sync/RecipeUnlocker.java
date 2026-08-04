@@ -42,35 +42,53 @@ public final class RecipeUnlocker {
         this.logger = logger;
     }
 
-    /**
-     * Unlocks every server recipe this player does not already know.
-     *
-     * @return the number newly unlocked; 0 when disabled, when the player already knew them all, or
-     *         when the world limits crafting
-     */
-    public int unlockFor(Player player) {
+    /** Why nothing was unlocked, so a silent zero is never indistinguishable from a broken setting. */
+    public enum Outcome { DISABLED, LIMITED_CRAFTING, NO_RECIPES, ALREADY_KNOWN, UNLOCKED }
+
+    public record Result(Outcome outcome, int count, int total) {
+        public String describe(String player) {
+            return switch (outcome) {
+                case DISABLED -> "Not unlocking recipes for " + player + ": unlock-recipes is off.";
+                case LIMITED_CRAFTING -> "Not unlocking recipes for " + player
+                        + ": this world uses the doLimitedCrafting gamerule.";
+                case NO_RECIPES -> "Not unlocking recipes for " + player
+                        + ": the server reported no recipes to unlock.";
+                case ALREADY_KNOWN -> "Nothing to unlock for " + player + ": all " + total
+                        + " recipes were already known.";
+                case UNLOCKED -> "Unlocked " + count + " of " + total + " recipes for " + player
+                        + " so the craft-this button works.";
+            };
+        }
+    }
+
+    /** Unlocks every server recipe this player does not already know. */
+    public Result unlockFor(Player player) {
         if (!config.get().unlockRecipes()) {
-            return 0;
+            return new Result(Outcome.DISABLED, 0, 0);
         }
         if (craftingIsLimited.test(player)) {
             // doLimitedCrafting means the server deliberately gates recipes behind progression.
             // Unlocking everything would quietly undo that, so refuse rather than obey the config.
             warnAboutLimitedCraftingOnce(player);
-            return 0;
+            return new Result(Outcome.LIMITED_CRAFTING, 0, 0);
+        }
+        Collection<NamespacedKey> keys = recipeKeys.get();
+        if (keys.isEmpty()) {
+            return new Result(Outcome.NO_RECIPES, 0, 0);
         }
         List<NamespacedKey> missing = new ArrayList<>();
-        for (NamespacedKey key : recipeKeys.get()) {
+        for (NamespacedKey key : keys) {
             if (!player.hasDiscoveredRecipe(key)) {
                 missing.add(key);
             }
         }
         if (missing.isEmpty()) {
-            return 0;
+            return new Result(Outcome.ALREADY_KNOWN, 0, keys.size());
         }
         // One batched call: it is a single event burst and a single packet, and reconnects are a
         // no-op because everything is already known by then.
         player.discoverRecipes(missing);
-        return missing.size();
+        return new Result(Outcome.UNLOCKED, missing.size(), keys.size());
     }
 
     /** Undoes {@link #unlockFor}, for an operator who turned the setting on and changed their mind. */

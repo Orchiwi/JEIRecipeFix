@@ -53,6 +53,8 @@ public final class RecipeSyncService {
     private final Set<UUID> sentTrigger = ConcurrentHashMap.newKeySet();
     private final Set<UUID> sentRecipeBook = ConcurrentHashMap.newKeySet();
     private final Set<UUID> notified = ConcurrentHashMap.newKeySet();
+    private final Set<RecipeUnlocker.Outcome> loggedUnlockOutcomes =
+            EnumSet.noneOf(RecipeUnlocker.Outcome.class);
     private final Set<ClientBrand> loggedBrands = EnumSet.noneOf(ClientBrand.class);
 
     public RecipeSyncService(RecipeBridge bridge, Supplier<PluginConfig> config, Plugin plugin,
@@ -176,10 +178,18 @@ public final class RecipeSyncService {
         if (sent && unlocker != null) {
             // Before the recipe book: unlocking makes the server send its own recipe-book entries,
             // and our own pass clears and rewrites the same ids afterwards, leaving one copy.
-            int unlocked = unlocker.unlockFor(player);
-            if (unlocked > 0) {
-                logger.info("Unlocked " + unlocked + " recipes for " + player.getName()
-                        + " so the craft-this button works.");
+            RecipeUnlocker.Result result = unlocker.unlockFor(player);
+            String message = result.describe(player.getName());
+            // Say it plainly the first time each outcome occurs. "Nothing happened" needs to be as
+            // visible as "it worked", or a setting that quietly does nothing looks like a broken one.
+            boolean firstOfItsKind;
+            synchronized (loggedUnlockOutcomes) {
+                firstOfItsKind = loggedUnlockOutcomes.add(result.outcome());
+            }
+            if (firstOfItsKind) {
+                logger.info(message);
+            } else {
+                debug(message);
             }
         }
         boolean recipeBook = false;

@@ -69,13 +69,13 @@ class RecipeUnlockerTest {
 
     @Test
     void doesNothingWhenTurnedOff() {
-        assertEquals(0, unlocker(false, false).unlockFor(player()));
+        assertEquals(RecipeUnlocker.Outcome.DISABLED, unlocker(false, false).unlockFor(player()).outcome());
         assertEquals(List.of(), calls, "player data must not be written unless asked for");
     }
 
     @Test
     void refusesInAWorldThatLimitsCraftingOnPurpose() {
-        assertEquals(0, unlocker(true, true).unlockFor(player()));
+        assertEquals(RecipeUnlocker.Outcome.LIMITED_CRAFTING, unlocker(true, true).unlockFor(player()).outcome());
         assertEquals(List.of(), calls);
     }
 
@@ -84,12 +84,12 @@ class RecipeUnlockerTest {
         known.add(NamespacedKey.minecraft("stick"));
         RecipeUnlocker unlocker = unlocker(true, false);
 
-        assertEquals(2, unlocker.unlockFor(player()));
+        assertEquals(2, unlocker.unlockFor(player()).count());
         assertEquals(List.of("discover:2"), calls);
 
         // A reconnect must not fire another burst of events and packets.
         calls.clear();
-        assertEquals(0, unlocker.unlockFor(player()));
+        assertEquals(RecipeUnlocker.Outcome.ALREADY_KNOWN, unlocker.unlockFor(player()).outcome());
         assertEquals(List.of(), calls);
     }
 
