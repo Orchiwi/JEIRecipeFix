@@ -6,10 +6,11 @@ public record PluginConfig(
         boolean syncOnDatapackReload,
         boolean recipeUpdateTrigger,
         RecipeBookMode recipeBookSync,
+        boolean unlockRecipes,
         boolean explainJeiWarning,
         boolean debug) {
 
     public static PluginConfig defaults() {
-        return new PluginConfig(true, true, true, true, RecipeBookMode.AUTO, true, false);
+        return new PluginConfig(true, true, true, true, RecipeBookMode.AUTO, false, true, false);
     }
 }

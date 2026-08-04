@@ -49,6 +49,7 @@ public final class JEIRecipeFixCommand implements CommandExecutor, TabCompleter 
                         "failures", String.valueOf(syncService.failureCount())));
             }
             case RESYNC -> handleResync(sender, action.target());
+            case REVOKE -> handleRevoke(sender, action.target());
         }
         return true;
     }
@@ -90,6 +91,33 @@ public final class JEIRecipeFixCommand implements CommandExecutor, TabCompleter 
         messages.send(sender, "resync-player", Map.of("player", player.getName()));
     }
 
+    private void handleRevoke(CommandSender sender, String target) {
+        if (denied(sender, "jeirecipefix.command.resync")) return;
+        if (syncService.unlocker() == null) {
+            messages.send(sender, "revoke-limited");
+            return;
+        }
+        if ("all".equalsIgnoreCase(target)) {
+            int players = 0;
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                syncService.unlocker().revokeFor(online);
+                players++;
+            }
+            messages.send(sender, "revoke-all", Map.of("count", String.valueOf(players)));
+            return;
+        }
+        Player player = "self".equalsIgnoreCase(target)
+                ? (sender instanceof Player p ? p : null)
+                : Bukkit.getPlayerExact(target);
+        if (player == null) {
+            messages.send(sender, "player-not-found", Map.of("player", target));
+            return;
+        }
+        int revoked = syncService.unlocker().revokeFor(player);
+        messages.send(sender, "revoke-player",
+                Map.of("player", player.getName(), "count", String.valueOf(revoked)));
+    }
+
     private boolean denied(CommandSender sender, String permission) {
         if (!sender.hasPermission(permission)) {
             messages.send(sender, "no-permission");
@@ -102,11 +130,11 @@ public final class JEIRecipeFixCommand implements CommandExecutor, TabCompleter 
     public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
                                       @NotNull String alias, @NotNull String[] args) {
         if (args.length == 1) {
-            return Stream.of("resync", "reload", "info", "help")
+            return Stream.of("resync", "reload", "info", "revoke", "help")
                     .filter(s -> s.startsWith(args[0].toLowerCase(Locale.ROOT)))
                     .toList();
         }
-        if (args.length == 2 && args[0].equalsIgnoreCase("resync")) {
+        if (args.length == 2 && (args[0].equalsIgnoreCase("resync") || args[0].equalsIgnoreCase("revoke"))) {
             return Stream.concat(Stream.of("all", "self"),
                             Bukkit.getOnlinePlayers().stream().map(Player::getName))
                     .filter(s -> s.toLowerCase(Locale.ROOT).startsWith(args[1].toLowerCase(Locale.ROOT)))

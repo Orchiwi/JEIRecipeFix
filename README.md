@@ -54,6 +54,7 @@ By default this is sent only to clients that report REI, which a server can only
 | --- | --- |
 | `/jrf info` | Show status: recipe count, online players, sync state, send failures. |
 | `/jrf resync [player\|all]` | Re-send recipes (useful after datapack changes). |
+| `/jrf revoke [player\|all]` | Undo `unlock-recipes` for a player. |
 | `/jrf reload` | Reload the configuration. |
 
 `/jeirecipefix` is the full command; `/jrf` is the alias. All commands require the `jeirecipefix.admin` permission (operators by default).
@@ -68,6 +69,7 @@ sync-on-join: true
 sync-on-datapack-reload: true
 recipe-update-trigger: true
 recipe-book-sync: auto
+unlock-recipes: false
 explain-jei-warning: true
 debug: false
 ```
@@ -75,6 +77,8 @@ debug: false
 `recipe-update-trigger` is what makes an already-running JEI re-read the recipes. It is only sent to clients that report both Fabric's recipe-sync channel and JEI, so other mods are left alone. Turning it off means recipes are still sent but JEI will keep showing your client's defaults.
 
 `recipe-book-sync` decides who receives the full recipe book: `auto` (only clients reporting REI), `all` (every modded client, for viewers this plugin cannot detect), or `off`.
+
+`unlock-recipes` makes the **craft-this button work** — the one that moves a recipe's ingredients into the crafting grid, in the vanilla recipe book and in REI, which uses the same mechanism. A server only accepts that request for recipes it has marked as known for the player, so without this the button appears but does nothing. The server still performs the move itself and still applies every check it normally would. It is **off by default** because, unlike the rest of this plugin, it writes to the player's saved data, and it is ignored in a world using the `doLimitedCrafting` gamerule. `/jrf revoke` undoes it.
 
 `explain-jei-warning` sends the one-line notice above, only to players whose client actually received the recipes and was identified as running a recipe viewer. Its wording lives in `messages.yml` under `jei-warning-notice`.
 

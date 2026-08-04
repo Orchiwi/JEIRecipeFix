@@ -7,8 +7,11 @@ resync-all: "&aRecipes re-sent to &e%count%&a player(s)."
 player-not-found: "&cPlayer &e%player% &cnot found."
 recipe-sync-dormant: "&cRecipe sync is dormant (unsupported server internals)."
 info-line: "&7Recipes: &f%recipes% &7| Online players: &f%players% &7| Sync: &f%state% &7| Recipe-update trigger: &f%trigger% &7| Send failures: &f%failures%"
+revoke-player: "&aUnlocked recipes revoked for &e%player%&a (&e%count%&a)."
+revoke-all: "&aUnlocked recipes revoked for &e%count%&a player(s)."
+revoke-limited: "&cNothing to revoke: recipe unlocking is not in use."
 unknown-subcommand: "&cUnknown subcommand. Use &e/jrf help&c."
-help: "&bJEIRecipeFix: &e/jrf resync [player|all]&7, &e/jrf reload&7, &e/jrf info"
+help: "&bJEIRecipeFix: &e/jrf resync [player|all]&7, &e/jrf revoke [player|all]&7, &e/jrf reload&7, &e/jrf info"
 # Sent to players whose client just received the recipes and runs a recipe viewer.
 # "if present" is deliberate: only JEI 30.8.0.51 / 29.14.0.43 and newer print that warning, and a
 # server cannot see which version of which viewer a player is running.

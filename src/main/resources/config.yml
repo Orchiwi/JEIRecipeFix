@@ -25,6 +25,16 @@ recipe-update-trigger: true
 #   off  - never
 recipe-book-sync: auto
 
+# Let players use the "craft this" button on a recipe.
+# The button that moves a recipe's ingredients into the crafting grid — in the vanilla recipe book,
+# and REI's, which uses the same mechanism — only works for recipes the server has marked as known
+# for that player. This unlocks them all, so the button works everywhere. The server still does the
+# moving itself and still checks everything it normally checks.
+# Off by default because, unlike the rest of this plugin, it writes to the player's saved data.
+# Ignored in a world using the doLimitedCrafting gamerule, which exists to gate recipes on purpose.
+# /jrf revoke [player|all] undoes it.
+unlock-recipes: false
+
 # Tell the player their recipes are synced.
 # A recipe viewer can warn that the server provides no recipes before any plugin is allowed to send
 # anything, and that warning stays on screen after the recipes have quietly arrived. This sends one

@@ -87,11 +87,11 @@ class RecipeSyncServiceTest {
     private static PluginConfig withRecipeBook(RecipeBookMode mode) {
         PluginConfig d = PluginConfig.defaults();
         return new PluginConfig(d.enabled(), d.syncOnJoin(), d.syncOnDatapackReload(),
-                d.recipeUpdateTrigger(), mode, d.explainJeiWarning(), d.debug());
+                d.recipeUpdateTrigger(), mode, d.unlockRecipes(), d.explainJeiWarning(), d.debug());
     }
 
     private RecipeSyncService service(RecipeBridge bridge, PluginConfig config) {
-        return new RecipeSyncService(bridge, () -> config, null, Logger.getAnonymousLogger(), notified::add);
+        return new RecipeSyncService(bridge, () -> config, null, Logger.getAnonymousLogger(), notified::add, null);
     }
 
     /** A Player is far too wide to stub by hand; only these few methods are on the sync path. */
@@ -132,7 +132,7 @@ class RecipeSyncServiceTest {
         assertTrue(enabled.shouldSync(ClientBrand.NEOFORGE));
         assertFalse(enabled.shouldSync(ClientBrand.OTHER));
 
-        RecipeSyncService disabled = service(true, new PluginConfig(false, true, true, true, RecipeBookMode.OFF, true, false));
+        RecipeSyncService disabled = service(true, new PluginConfig(false, true, true, true, RecipeBookMode.OFF, false, true, false));
         assertFalse(disabled.shouldSync(ClientBrand.FABRIC));
 
         RecipeSyncService unavailable = service(false, PluginConfig.defaults());
@@ -174,7 +174,7 @@ class RecipeSyncServiceTest {
 
     @Test
     void neverTriggersWhenDisabledInConfigOrUnsupportedByTheServer() {
-        PluginConfig triggerOff = new PluginConfig(true, true, true, false, RecipeBookMode.OFF, true, false);
+        PluginConfig triggerOff = new PluginConfig(true, true, true, false, RecipeBookMode.OFF, false, true, false);
         service(true, triggerOff).syncTo(fabricPlayer(FABRIC_SYNC, JEI));
 
         RecipeBridge noTrigger = bridge(true, false, FABRIC_PAYLOAD);
@@ -206,7 +206,7 @@ class RecipeSyncServiceTest {
 
     @Test
     void doesNotExplainJeiSWarningWhenTurnedOff() {
-        PluginConfig noticeOff = new PluginConfig(true, true, true, true, RecipeBookMode.OFF, false, false);
+        PluginConfig noticeOff = new PluginConfig(true, true, true, true, RecipeBookMode.OFF, false, false, false);
         service(true, noticeOff).syncTo(fabricPlayer(FABRIC_SYNC, JEI));
         assertEquals(List.of(), notified);
     }

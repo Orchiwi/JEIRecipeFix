@@ -18,6 +18,7 @@ public final class ConfigLoader {
                 section.getBoolean("sync-on-datapack-reload", d.syncOnDatapackReload()),
                 section.getBoolean("recipe-update-trigger", d.recipeUpdateTrigger()),
                 RecipeBookMode.parse(section.getString("recipe-book-sync"), d.recipeBookSync()),
+                section.getBoolean("unlock-recipes", d.unlockRecipes()),
                 section.getBoolean("explain-jei-warning", d.explainJeiWarning()),
                 section.getBoolean("debug", d.debug()));
     }

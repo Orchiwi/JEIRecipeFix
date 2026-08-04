@@ -45,6 +45,7 @@ public final class RecipeSyncService {
     private final Lazy<RecipePayload> neoForgePayload;
 
     private final Consumer<Player> jeiWarningNotice;
+    private final RecipeUnlocker unlocker;
 
     // Tracked per piece, not per player: a client announces its channels in bursts, so the recipe
     // book or the JEI trigger can become applicable a moment after the recipes themselves went out.
@@ -55,12 +56,13 @@ public final class RecipeSyncService {
     private final Set<ClientBrand> loggedBrands = EnumSet.noneOf(ClientBrand.class);
 
     public RecipeSyncService(RecipeBridge bridge, Supplier<PluginConfig> config, Plugin plugin,
-                             Logger logger, Consumer<Player> jeiWarningNotice) {
+                             Logger logger, Consumer<Player> jeiWarningNotice, RecipeUnlocker unlocker) {
         this.bridge = bridge;
         this.config = config;
         this.plugin = plugin;
         this.logger = logger;
         this.jeiWarningNotice = jeiWarningNotice;
+        this.unlocker = unlocker;
         this.fabricPayload = new Lazy<>(() -> describe(ClientBrand.FABRIC, bridge.buildFabricPayload()));
         this.neoForgePayload = new Lazy<>(() -> describe(ClientBrand.NEOFORGE, bridge.buildNeoForgePayload()));
     }
@@ -171,6 +173,15 @@ public final class RecipeSyncService {
                 sentTrigger.add(player.getUniqueId());
             }
         }
+        if (sent && unlocker != null) {
+            // Before the recipe book: unlocking makes the server send its own recipe-book entries,
+            // and our own pass clears and rewrites the same ids afterwards, leaving one copy.
+            int unlocked = unlocker.unlockFor(player);
+            if (unlocked > 0) {
+                logger.info("Unlocked " + unlocked + " recipes for " + player.getName()
+                        + " so the craft-this button works.");
+            }
+        }
         boolean recipeBook = false;
         if (sent && shouldSendRecipeBook(player)) {
             recipeBook = bridge.sendRecipeBook(player);
@@ -268,6 +279,10 @@ public final class RecipeSyncService {
 
     public int failureCount() {
         return bridge.failureCount();
+    }
+
+    public RecipeUnlocker unlocker() {
+        return unlocker;
     }
 
     /** Logs the shape of a freshly built payload once, so a broken sync is visible with the default config. */

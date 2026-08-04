@@ -11,6 +11,12 @@ import fr.horizonsmp.jeirecipefix.nms.NmsRecipeBridge;
 import fr.horizonsmp.jeirecipefix.nms.RecipeBridge;
 import fr.horizonsmp.jeirecipefix.sync.ClientBrand;
 import fr.horizonsmp.jeirecipefix.sync.RecipeSyncService;
+import fr.horizonsmp.jeirecipefix.sync.RecipeUnlocker;
+import org.bukkit.Bukkit;
+import org.bukkit.GameRule;
+import org.bukkit.Keyed;
+import org.bukkit.NamespacedKey;
+import org.bukkit.inventory.Recipe;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -41,8 +47,11 @@ public final class JEIRecipeFix extends JavaPlugin {
             getLogger().warning("Unsupported server internals; recipe sync disabled. JEIRecipeFix will stay dormant.");
         }
         this.messages = new Messages(this);
+        RecipeUnlocker unlocker = new RecipeUnlocker(config::get, JEIRecipeFix::serverRecipeKeys,
+                player -> Boolean.TRUE.equals(player.getWorld().getGameRuleValue(GameRule.DO_LIMITED_CRAFTING)),
+                getLogger());
         this.syncService = new RecipeSyncService(bridge, config::get, this, getLogger(),
-                player -> messages.send(player, "jei-warning-notice"));
+                player -> messages.send(player, "jei-warning-notice"), unlocker);
 
         getServer().getPluginManager().registerEvents(
                 new PlayerConnectionListener(this, syncService, config::get), this);
@@ -77,6 +86,18 @@ public final class JEIRecipeFix extends JavaPlugin {
         } catch (IOException e) {
             getLogger().warning("Could not bring config.yml up to date: " + e.getMessage());
         }
+    }
+
+    /** Recomputed rather than cached: it costs microseconds and is never stale after a datapack reload. */
+    private static java.util.Collection<NamespacedKey> serverRecipeKeys() {
+        java.util.List<NamespacedKey> keys = new java.util.ArrayList<>();
+        java.util.Iterator<Recipe> recipes = Bukkit.recipeIterator();
+        while (recipes.hasNext()) {
+            if (recipes.next() instanceof Keyed keyed) {
+                keys.add(keyed.getKey());
+            }
+        }
+        return keys;
     }
 
     private void warmPayloads() {

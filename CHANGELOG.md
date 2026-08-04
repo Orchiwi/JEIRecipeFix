@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Added
+- `unlock-recipes` (off by default) makes the craft-this button work — the one that moves a recipe's
+  ingredients into the crafting grid, in the vanilla recipe book and in REI, which uses the same
+  mechanism. The server only accepts that request for recipes it has marked as known for the player,
+  so the button previously appeared but did nothing. The server still performs the move itself, with
+  all its usual checks and events; the plugin adds no packet handling of its own.
+- `/jrf revoke [player|all]` undoes it.
+
 ## [0.3.0] - 2026-08-04
 
 ### Added
