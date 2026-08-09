@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a single Paper/Purpur/Folia plugin (MC 1.21.2 → 26.1.2) that re-sends the server's recipes to modded clients so JEI/REI/EMI work again, with no client mod and no server mod loader.
+**Goal:** Build a single Paper/Purpur/Folia plugin (MC 1.21.2 to 26.1.2) that re-sends the server's recipes to modded clients so JEI/REI/EMI work again, with no client mod and no server mod loader.
 
 **Architecture:** The plugin impersonates the client's mod *loader* recipe-sync (Fabric `fabric:recipe_sync` / NeoForge `neoforge:recipe_content`), detected per player via the client brand. Recipes are read from the server's own recipe manager and encoded with the server's own stream codecs through a reflection layer, so one jar adapts to every version in range. Pure logic (brand detection, config, command routing, payload caching) is TDD-unit-tested; the reflection/wire layer is verified at runtime against a real modded client.
 
@@ -14,7 +14,7 @@
 - The spec listed `sync/FabricPayload.java` and `sync/NeoForgePayload.java` as separate classes. They are consolidated as private `buildFabricPayload()` / `buildNeoForgePayload()` methods inside `nms/NmsRecipeBridge.java`, because they share the entire reflection context; splitting would only add a context-passing abstraction with no payoff.
 - A tiny generic `util/Lazy.java` provides the per-loader payload cache instead of bare `AtomicReference` plumbing in the service, so the caching is unit-testable in isolation.
 
-**Testing reality:** Reflection into server internals and exact loader wire formats cannot be meaningfully unit-tested without a running server; their acceptance test is a live modded client showing recipes (Tasks 7, 8, 12). Everything that *can* be unit-tested is, TDD-first (Tasks 2–4, 6, 10).
+**Testing reality:** Reflection into server internals and exact loader wire formats cannot be meaningfully unit-tested without a running server; their acceptance test is a live modded client showing recipes (Tasks 7, 8, 12). Everything that *can* be unit-tested is, TDD-first (Tasks 2 to 4, 6, 10).
 
 ---
 
@@ -22,33 +22,33 @@
 
 Created files and their single responsibility:
 
-- `settings.gradle.kts` — project name.
-- `build.gradle.kts` — build, test, runServer, Modrinth publishing.
-- `gradle.properties` — version source of truth.
-- `gradle/libs.versions.toml` — dependency/plugin versions.
-- `gradle/wrapper/*`, `gradlew`, `gradlew.bat` — Gradle wrapper (copied from GeoBlock).
-- `.gitignore`, `LICENSE` — copied from GeoBlock (LICENSE year/owner already Orchiwi).
-- `README.md` — Modrinth body; what it does, supported loaders/versions, unofficial-plugin notice.
-- `CHANGELOG.md` — Keep a Changelog format; user-facing wording.
-- `.github/workflows/release.yml` — tag-triggered Modrinth release.
-- `src/main/resources/plugin.yml` — name, command, permission tree, Folia flag.
-- `src/main/resources/config.yml` — the 4 light toggles.
-- `src/main/resources/messages.yml` — all displayable strings.
-- `src/main/java/fr/horizonsmp/jeirecipefix/JEIRecipeFix.java` — JavaPlugin entry; manual DI.
-- `.../config/PluginConfig.java` — immutable config record.
-- `.../config/ConfigLoader.java` — `ConfigurationSection` → `PluginConfig`.
-- `.../sync/ClientBrand.java` — brand string → FABRIC/NEOFORGE/OTHER.
-- `.../sync/RecipeSyncService.java` — orchestration, per-loader cached payloads, resync.
-- `.../util/Lazy.java` — thread-safe memoize-with-invalidate.
-- `.../nms/RecipeBridge.java` — interface the service depends on (fakeable in tests).
-- `.../nms/NmsRecipeBridge.java` — reflection impl: read recipes, encode via server codecs, send.
-- `.../nms/Reflect.java` — small reflection helper.
-- `.../listener/PlayerConnectionListener.java` — sync on join (+ one delayed retry).
-- `.../listener/ResourceReloadListener.java` — datapack reload → invalidate + resync.
-- `.../command/CommandRouter.java` — pure args → action.
-- `.../command/JEIRecipeFixCommand.java` — command executor + tab completion glue.
-- `.../i18n/Messages.java` — messages.yml + Adventure legacy `&`.
-- `src/test/java/...` — JUnit tests mirroring the testable classes.
+- `settings.gradle.kts`: project name.
+- `build.gradle.kts`: build, test, runServer, Modrinth publishing.
+- `gradle.properties`: version source of truth.
+- `gradle/libs.versions.toml`: dependency/plugin versions.
+- `gradle/wrapper/*`, `gradlew`, `gradlew.bat`: Gradle wrapper (copied from GeoBlock).
+- `.gitignore`, `LICENSE`: copied from GeoBlock (LICENSE year/owner already Orchiwi).
+- `README.md`: Modrinth body; what it does, supported loaders/versions, unofficial-plugin notice.
+- `CHANGELOG.md`: Keep a Changelog format; user-facing wording.
+- `.github/workflows/release.yml`: tag-triggered Modrinth release.
+- `src/main/resources/plugin.yml`: name, command, permission tree, Folia flag.
+- `src/main/resources/config.yml`: the 4 light toggles.
+- `src/main/resources/messages.yml`: all displayable strings.
+- `src/main/java/fr/horizonsmp/jeirecipefix/JEIRecipeFix.java`: JavaPlugin entry; manual DI.
+- `.../config/PluginConfig.java`: immutable config record.
+- `.../config/ConfigLoader.java`: `ConfigurationSection` -> `PluginConfig`.
+- `.../sync/ClientBrand.java`: brand string -> FABRIC/NEOFORGE/OTHER.
+- `.../sync/RecipeSyncService.java`: orchestration, per-loader cached payloads, resync.
+- `.../util/Lazy.java`: thread-safe memoize-with-invalidate.
+- `.../nms/RecipeBridge.java`: interface the service depends on (fakeable in tests).
+- `.../nms/NmsRecipeBridge.java`: reflection impl: read recipes, encode via server codecs, send.
+- `.../nms/Reflect.java`: small reflection helper.
+- `.../listener/PlayerConnectionListener.java`: sync on join (+ one delayed retry).
+- `.../listener/ResourceReloadListener.java`: datapack reload -> invalidate + resync.
+- `.../command/CommandRouter.java`: pure args -> action.
+- `.../command/JEIRecipeFixCommand.java`: command executor + tab completion glue.
+- `.../i18n/Messages.java`: messages.yml + Adventure legacy `&`.
+- `src/test/java/...`: JUnit tests mirroring the testable classes.
 
 ---
 
@@ -118,7 +118,7 @@ run-paper = { id = "xyz.jpenilla.run-paper", version.ref = "run-task" }
 minotaur = { id = "com.modrinth.minotaur", version.ref = "minotaur" }
 ```
 
-Rationale: compile against the **floor** paper-api (1.21.2) so we never accidentally call an API added later; `release = 21` makes the jar load on every server in range. `runServer` uses a mid version (1.21.4) for local testing. No shadow plugin — we have no runtime deps.
+Rationale: compile against the **floor** paper-api (1.21.2) so we never accidentally call an API added later; `release = 21` makes the jar load on every server in range. `runServer` uses a mid version (1.21.4) for local testing. No shadow plugin: we have no runtime deps.
 
 - [ ] **Step 6: Write `build.gradle.kts`**
 
@@ -335,7 +335,7 @@ class ClientBrandTest {
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `./gradlew test --tests "fr.horizonsmp.jeirecipefix.sync.ClientBrandTest"`
-Expected: FAIL — `ClientBrand` does not exist (compilation error).
+Expected: FAIL, `ClientBrand` does not exist (compilation error).
 
 - [ ] **Step 3: Write the implementation**
 
@@ -439,7 +439,7 @@ class ConfigLoaderTest {
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `./gradlew test --tests "fr.horizonsmp.jeirecipefix.config.ConfigLoaderTest"`
-Expected: FAIL — `PluginConfig` / `ConfigLoader` do not exist.
+Expected: FAIL, `PluginConfig` / `ConfigLoader` do not exist.
 
 - [ ] **Step 3: Write `PluginConfig.java`**
 
@@ -555,7 +555,7 @@ class LazyTest {
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `./gradlew test --tests "fr.horizonsmp.jeirecipefix.util.LazyTest"`
-Expected: FAIL — `Lazy` does not exist.
+Expected: FAIL, `Lazy` does not exist.
 
 - [ ] **Step 3: Write `Lazy.java`**
 
@@ -733,7 +733,7 @@ class RecipeSyncServiceTest {
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `./gradlew test --tests "fr.horizonsmp.jeirecipefix.sync.RecipeSyncServiceTest"`
-Expected: FAIL — `RecipeSyncService` does not exist.
+Expected: FAIL, `RecipeSyncService` does not exist.
 
 - [ ] **Step 3: Write `RecipeSyncService.java`**
 
@@ -841,9 +841,9 @@ git commit -m "feat: orchestrate recipe sync with per-loader payload caching"
 
 ---
 
-## Task 7: NMS Fabric path + join listener + wiring — first end-to-end sync (MVP)
+## Task 7: NMS Fabric path + join listener + wiring first end-to-end sync (MVP)
 
-This is the core and the highest-risk task. The acceptance test is a **live Fabric client with JEI** showing recipes, not a unit test. While implementing `NmsRecipeBridge`, keep the reference open: **`Mrbysco/JEIRecipeBridge`** payload classes (linked in the spec) show the exact Fabric framing in typed NMS; this task reproduces it via reflection. The Fabric wire format (from `fabric-recipe-api-v1` `ClientboundRecipeSyncPayload`): a `List<Entry>` where each `Entry` = `Identifier serializerId` + `VarInt count` + `count × { ResourceKey<Recipe> id, recipe via that serializer's stream codec }`.
+This is the core and the highest-risk task. The acceptance test is a **live Fabric client with JEI** showing recipes, not a unit test. While implementing `NmsRecipeBridge`, keep the reference open: **`Mrbysco/JEIRecipeBridge`** payload classes (linked in the spec) show the exact Fabric framing in typed NMS; this task reproduces it via reflection. The Fabric wire format (from `fabric-recipe-api-v1` `ClientboundRecipeSyncPayload`): a `List<Entry>` where each `Entry` = `Identifier serializerId` + `VarInt count` + `count * { ResourceKey<Recipe> id, recipe via that serializer's stream codec }`.
 
 **Files:**
 - Create: `src/main/java/fr/horizonsmp/jeirecipefix/nms/Reflect.java`
@@ -1142,7 +1142,7 @@ public final class NmsRecipeBridge implements RecipeBridge {
 }
 ```
 
-> Implementation note: `FriendlyByteBuf` wraps a Netty `ByteBuf` (it implements the buffer interface), so casting the registry buffer to `ByteBuf` to read its bytes is valid; if a given version rejects the direct cast, read `bufField = Reflect.getField(buf, "source")`/equivalent — confirm at runtime. The `// VERIFY` lines (`registryAccess`, `getRecipeManager`, `getRecipes`, `RECIPE_SERIALIZER`, `DiscardedPayload` ctor, `ResourceLocation.parse`, `connection` field) are the only version-sensitive points; everything else is delegated to the server's own codecs.
+> Implementation note: `FriendlyByteBuf` wraps a Netty `ByteBuf` (it implements the buffer interface), so casting the registry buffer to `ByteBuf` to read its bytes is valid; if a given version rejects the direct cast, read `bufField = Reflect.getField(buf, "source")`/equivalent (confirm at runtime). The `// VERIFY` lines (`registryAccess`, `getRecipeManager`, `getRecipes`, `RECIPE_SERIALIZER`, `DiscardedPayload` ctor, `ResourceLocation.parse`, `connection` field) are the only version-sensitive points; everything else is delegated to the server's own codecs.
 
 - [ ] **Step 3: Write `PlayerConnectionListener.java`**
 
@@ -1251,12 +1251,12 @@ public final class JEIRecipeFix extends JavaPlugin {
 Run: `./gradlew build`
 Expected: `BUILD SUCCESSFUL`, all prior unit tests green.
 
-- [ ] **Step 6: Runtime acceptance — Fabric client shows recipes**
+- [ ] **Step 6: Runtime acceptance: Fabric client shows recipes**
 
 1. `./gradlew runServer` (1.21.4).
 2. Join with a **Fabric** client running **JEI** (and Fabric API).
 3. Open JEI and search an item (e.g. a stick): its crafting/cooking recipes appear.
-4. Repeat with **REI** and **EMI** clients — recipes appear there too (same loader store).
+4. Repeat with **REI** and **EMI** clients: recipes appear there too (same loader store).
 5. Log shows no plugin-side exception; with `debug: true`, a `Synced N recipes to <player> (brand=FABRIC)` line.
 
 If recipes do not appear, compare the byte framing against `Mrbysco/JEIRecipeBridge`'s Fabric payload class and the Fabric `ClientboundRecipeSyncPayload` codec, and fix the `// VERIFY` points. This is the validation gate for the wire format.
@@ -1383,14 +1383,14 @@ Replace `sendNeoForge` with:
     }
 ```
 
-> The exact `ClientboundUpdateTagsPacket` construction (the `pickTagsFactory`/`buildTagsPacket` helpers) is the most version-variable NMS detail; port it directly from `Mrbysco/JEIRecipeBridge`'s NeoForge sender, which already does this for the 1.21.x and 26.1.x lines. Implement those two private helpers from that reference. If you must ship NeoForge support incrementally, it is acceptable to land Fabric first (Task 7) and keep this task open — Fabric covers the majority of clients.
+> The exact `ClientboundUpdateTagsPacket` construction (the `pickTagsFactory`/`buildTagsPacket` helpers) is the most version-variable NMS detail; port it directly from `Mrbysco/JEIRecipeBridge`'s NeoForge sender, which already does this for the 1.21.x and 26.1.x lines. Implement those two private helpers from that reference. If you must ship NeoForge support incrementally, it is acceptable to land Fabric first (Task 7) and keep this task open, since Fabric covers the majority of clients.
 
 - [ ] **Step 4: Verify build**
 
 Run: `./gradlew build`
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 5: Runtime acceptance — NeoForge client shows recipes**
+- [ ] **Step 5: Runtime acceptance: NeoForge client shows recipes**
 
 1. `./gradlew runServer`.
 2. Join with a **NeoForge** client running **JEI**.
@@ -1405,7 +1405,7 @@ git commit -m "feat: sync recipes to NeoForge clients"
 
 ---
 
-## Task 9: Datapack reload → invalidate cache + resync
+## Task 9: Datapack reload -> invalidate cache + resync
 
 **Files:**
 - Create: `src/main/java/fr/horizonsmp/jeirecipefix/listener/ResourceReloadListener.java`
@@ -1476,7 +1476,7 @@ Add after the existing `registerEvents(...)` call:
 Run: `./gradlew build`
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 5: Runtime acceptance — datapack reload refreshes recipes**
+- [ ] **Step 5: Runtime acceptance: datapack reload refreshes recipes**
 
 1. `./gradlew runServer`, join with a Fabric+JEI client.
 2. Add/modify a datapack recipe, run `/minecraft:reload`.
@@ -1546,7 +1546,7 @@ class CommandRouterTest {
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `./gradlew test --tests "fr.horizonsmp.jeirecipefix.command.CommandRouterTest"`
-Expected: FAIL — `CommandRouter` does not exist.
+Expected: FAIL, `CommandRouter` does not exist.
 
 - [ ] **Step 3: Write `CommandRouter.java`**
 
@@ -1782,7 +1782,7 @@ Add the imports `fr.horizonsmp.jeirecipefix.command.JEIRecipeFixCommand` and `fr
 Run: `./gradlew build`
 Expected: `BUILD SUCCESSFUL`, all tests green.
 
-- [ ] **Step 10: Runtime acceptance — command works**
+- [ ] **Step 10: Runtime acceptance: command works**
 
 1. `./gradlew runServer`.
 2. As console/op: `/jrf info` shows the status line; `/jrf reload` reports success; `/jrf resync all` reports the player count; `/jrf bogus` shows the unknown-subcommand message.
@@ -1808,7 +1808,7 @@ git commit -m "feat: add admin command (resync/reload/info) with messages"
 
 Makes recipe-viewer mods work again on Paper, Purpur and Folia servers.
 
-Since Minecraft 1.21.2, servers no longer send recipes to clients, so **JEI**, **REI** and **EMI** show nothing on a plugin-based server. JEIRecipeFix sends the server's recipes to those mods so recipe lookups work again — with **no client mod** and **no server mod loader**.
+Since Minecraft 1.21.2, servers no longer send recipes to clients, so **JEI**, **REI** and **EMI** show nothing on a plugin-based server. JEIRecipeFix sends the server's recipes to those mods so recipe lookups work again, with **no client mod** and **no server mod loader**.
 
 ## Features
 
@@ -1819,13 +1819,13 @@ Since Minecraft 1.21.2, servers no longer send recipes to clients, so **JEI**, *
 
 ## Supported versions
 
-Minecraft 1.21.2 → 26.1.2, on Paper / Purpur / Folia.
+Minecraft 1.21.2 to 26.1.2, on Paper / Purpur / Folia.
 
 ## Commands
 
-- `/jrf resync [player|all]` — re-send recipes.
-- `/jrf reload` — reload the configuration.
-- `/jrf info` — show status.
+- `/jrf resync [player|all]`: re-send recipes.
+- `/jrf reload`: reload the configuration.
+- `/jrf info`: show status.
 
 ## Notes
 
@@ -1843,7 +1843,7 @@ All notable changes to this project are documented here.
 
 ### Added
 - Your server's recipes now show up again in JEI, REI and EMI on Paper, Purpur and Folia.
-- Works automatically for Fabric and NeoForge clients — no client mod needed.
+- Works automatically for Fabric and NeoForge clients: no client mod needed.
 - Recipes update after a datapack reload.
 - Admin commands to re-send recipes, reload settings, and check status.
 ```
@@ -1899,7 +1899,7 @@ jobs:
 
 - [ ] **Step 4: Verify the changelog extraction works**
 
-Run: `./gradlew modrinth --dry-run` (or inspect) — actually run `./gradlew build` and confirm no Gradle script error in the `modrinth`/`extractChangelogSection` configuration.
+Run: `./gradlew modrinth --dry-run` (or inspect), then actually run `./gradlew build` and confirm no Gradle script error in the `modrinth`/`extractChangelogSection` configuration.
 Expected: `BUILD SUCCESSFUL` (no upload without a token; that is fine).
 
 - [ ] **Step 5: Commit**
@@ -1943,19 +1943,19 @@ git commit -m "fix: harden reflection across the supported version range"
 
 ## Self-Review
 
-**1. Spec coverage** — every spec section maps to a task:
-- Problem / goal / single-jar via server codecs → Task 7 (`NmsRecipeBridge`, encode via server stream codecs), Task 1 (release 21, floor API).
-- Fabric `fabric:recipe_sync` → Task 7. NeoForge `neoforge:recipe_content` + tags → Task 8.
-- What is synced (manager recipes) / not synced (brewing/anvil/fuel) → Task 7 reads the recipe manager; brewing/anvil/fuel are simply absent there, no code needed (as designed).
-- Brand detection → Task 2. All server recipes (vanilla+datapack+plugins) → Task 7 reads the live manager; Task 9 refreshes on reload.
-- Control surface: config → Task 3; command + permissions → Task 10 + plugin.yml in Task 1; resync → Tasks 9/10.
-- Payload caching → Tasks 4 + 6. Folia scheduling → Tasks 6/7/10 (`player.getScheduler()`), `folia-supported` in Task 1.
-- Error handling (brand null + retry, dormant on unsupported internals, harmless drop) → Tasks 7 (retry, dormant) and 6 (skip).
-- Build/versions/Modrinth → Task 1; README/changelog/workflow → Task 11.
-- Testing/done criteria → Tasks 7/8/9/10/12 runtime steps.
+**1. Spec coverage**: every spec section maps to a task:
+- Problem / goal / single-jar via server codecs -> Task 7 (`NmsRecipeBridge`, encode via server stream codecs), Task 1 (release 21, floor API).
+- Fabric `fabric:recipe_sync` -> Task 7. NeoForge `neoforge:recipe_content` + tags -> Task 8.
+- What is synced (manager recipes) / not synced (brewing/anvil/fuel) -> Task 7 reads the recipe manager; brewing/anvil/fuel are simply absent there, no code needed (as designed).
+- Brand detection -> Task 2. All server recipes (vanilla+datapack+plugins) -> Task 7 reads the live manager; Task 9 refreshes on reload.
+- Control surface: config -> Task 3; command + permissions -> Task 10 + plugin.yml in Task 1; resync -> Tasks 9/10.
+- Payload caching -> Tasks 4 + 6. Folia scheduling -> Tasks 6/7/10 (`player.getScheduler()`), `folia-supported` in Task 1.
+- Error handling (brand null + retry, dormant on unsupported internals, harmless drop) -> Tasks 7 (retry, dormant) and 6 (skip).
+- Build/versions/Modrinth -> Task 1; README/changelog/workflow -> Task 11.
+- Testing/done criteria -> Tasks 7/8/9/10/12 runtime steps.
 
-**2. Placeholder scan** — no "TBD/TODO/handle edge cases" left. The `// VERIFY` markers are concrete, named version-sensitive points with a stated validation method (runtime client + JEIRecipeBridge reference), not vague placeholders. Task 8's tags-packet helpers are explicitly delegated to the named reference implementation rather than left blank. The two deliberate "read, don't paste" guards (the `assertФalse` typo note in Task 6, and the LICENSE year check in Task 1) are called out inline.
+**2. Placeholder scan**: no "TBD/TODO/handle edge cases" left. The `// VERIFY` markers are concrete, named version-sensitive points with a stated validation method (runtime client + JEIRecipeBridge reference), not vague placeholders. Task 8's tags-packet helpers are explicitly delegated to the named reference implementation rather than left blank. The two deliberate "read, don't paste" guards (the `assertФalse` typo note in Task 6, and the LICENSE year check in Task 1) are called out inline.
 
-**3. Type consistency** — `RecipeBridge` methods (`isAvailable`, `recipeCount`, `buildFabricPayload`, `buildNeoForgePayload`, `sendFabric`, `sendNeoForge`) match across the interface (Task 5), the fake (Task 6), and `NmsRecipeBridge` (Tasks 7/8). `RecipeSyncService` ctor `(RecipeBridge, Supplier<PluginConfig>, Plugin, Logger)` is identical in Task 6 test, Task 6 impl, and Task 7 wiring. `ClientBrand` / `PluginConfig` / `Lazy` / `CommandRouter.Action`/`Type` names are used consistently. `Messages` ctor and `send(...)` signatures match Task 10 usage.
+**3. Type consistency**: `RecipeBridge` methods (`isAvailable`, `recipeCount`, `buildFabricPayload`, `buildNeoForgePayload`, `sendFabric`, `sendNeoForge`) match across the interface (Task 5), the fake (Task 6), and `NmsRecipeBridge` (Tasks 7/8). `RecipeSyncService` ctor `(RecipeBridge, Supplier<PluginConfig>, Plugin, Logger)` is identical in Task 6 test, Task 6 impl, and Task 7 wiring. `ClientBrand` / `PluginConfig` / `Lazy` / `CommandRouter.Action`/`Type` names are used consistently. `Messages` ctor and `send(...)` signatures match Task 10 usage.
 
-Known open item (acceptable): the exact Fabric/NeoForge byte framing and a handful of NMS accessor names are validated at runtime, not by unit test — this is inherent to NMS reflection and is gated by the Task 7/8/12 acceptance steps and the JEIRecipeBridge reference.
+Known open item (acceptable): the exact Fabric/NeoForge byte framing and a handful of NMS accessor names are validated at runtime, not by unit test; this is inherent to NMS reflection and is gated by the Task 7/8/12 acceptance steps and the JEIRecipeBridge reference.

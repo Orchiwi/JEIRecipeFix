@@ -15,7 +15,7 @@ import java.util.logging.Logger;
  *
  * <p>ViaVersion and ViaBackwards let a player on an older Minecraft version join, and translate the
  * vanilla packets on the way out. They cannot translate this plugin's recipe payload: it travels on
- * a channel Via has no schema for, so its bytes are forwarded untouched — and those bytes carry this
+ * a channel Via has no schema for, so its bytes are forwarded untouched, and those bytes carry this
  * server's <em>numeric</em> item and data-component ids, which shift on every Minecraft release. A
  * client that reads them against its own numbering throws while decoding and drops the connection,
  * which is why an older client was being kicked the moment it joined.
@@ -37,7 +37,7 @@ public final class ProtocolGate {
         NATIVE,
         /** A different protocol, reached through ViaVersion: the recipe payload would disconnect them. */
         TRANSLATED,
-        /** Could not be determined — ViaVersion is absent, or it does not know this player yet. */
+        /** Could not be determined: ViaVersion is absent, or it does not know this player yet. */
         UNKNOWN
     }
 
@@ -87,7 +87,7 @@ public final class ProtocolGate {
      *
      * <p>{@code SharedConstants#getProtocolVersion()} has kept its name and signature across every
      * version this plugin supports; the {@code WorldVersion} route is the fallback in case that ever
-     * stops being true. Failing both is not fatal — it only means every client is treated as
+     * stops being true. Failing both is not fatal: it only means every client is treated as
      * indeterminate, which the {@code cross-version-unknown-is-native} setting then decides.
      */
     private static int resolveServerProtocol(Logger logger) {

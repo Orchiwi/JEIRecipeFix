@@ -70,7 +70,7 @@ public final class PlayerConnectionListener implements Listener {
             return;
         }
         // A tick of slack: the client announces its channels one at a time, so the rest of the burst
-        // — JEI's own channel among them — has not been recorded yet when this fires.
+        // (JEI's own channel among them) has not been recorded yet when this fires.
         player.getScheduler().runDelayed(plugin, task -> syncService.syncOnceTo(player), null, CHANNEL_SETTLE_TICKS);
     }
 

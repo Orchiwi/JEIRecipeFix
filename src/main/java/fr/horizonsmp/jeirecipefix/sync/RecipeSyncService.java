@@ -65,7 +65,7 @@ public final class RecipeSyncService {
 
     // Tracked per piece, not per player: a client announces its channels in bursts, so the recipe
     // book or the JEI trigger can become applicable a moment after the recipes themselves went out.
-    // payloadSettled means the payload question is closed for this connection — sent, or deliberately
+    // payloadSettled means the payload question is closed for this connection: sent, or deliberately
     // withheld because the client is on another version. Either way it must not be retried.
     private final Set<UUID> payloadSettled = ConcurrentHashMap.newKeySet();
     private final Set<UUID> sentTrigger = ConcurrentHashMap.newKeySet();
@@ -94,7 +94,7 @@ public final class RecipeSyncService {
      * How much of the sync this client can take, given the Minecraft version it is really on.
      *
      * <p>The recipe payload is raw bytes on a channel ViaVersion has no schema for, so Via forwards
-     * it untranslated — carrying this server's numeric item ids to a client that numbers items
+     * it untranslated, carrying this server's numeric item ids to a client that numbers items
      * differently. Decoding that throws on the client and drops the connection, which is why an
      * older client used to be kicked the instant it joined. The vanilla recipe book has no such
      * problem: Via parses and rewrites it properly, so REI can still be served.
@@ -126,7 +126,7 @@ public final class RecipeSyncService {
      * Whether the vanilla recipe-update packet should follow the Fabric payload for this client.
      *
      * <p>Two things have to be true. The client must advertise Fabric API's recipe-sync channel,
-     * which is only registered from MC 1.21.10 on — below that the payload is dropped and the extra
+     * which is only registered from MC 1.21.10 on. Below that the payload is dropped and the extra
      * packet would only make other mods reload for nothing. And it must advertise JEI's channel:
      * JEI is what needs the nudge, whereas REI reloads on the packet without ever reading the
      * payload, so sending it there is pure cost.
@@ -142,7 +142,7 @@ public final class RecipeSyncService {
     /**
      * Whether to send this client the server's full recipe book. REI builds its displays straight
      * out of the vanilla recipe-book packet, and a plugin server only ever sends the handful of
-     * recipes the player has unlocked — which is why REI looks empty. The cost is that the player's
+     * recipes the player has unlocked, which is why REI looks empty. The cost is that the player's
      * own recipe book lists everything, so AUTO limits it to clients that report REI.
      */
     public boolean shouldSendRecipeBook(Player player) {
@@ -163,7 +163,7 @@ public final class RecipeSyncService {
             return false;
         }
         // The same two gates the join path applies. Without the brand check, 'all' mode reached every
-        // client here — including vanilla ones, which never got the recipe book on join in the first place.
+        // client here, including vanilla ones, which never got the recipe book on join in the first place.
         if (!shouldSync(ClientBrand.fromBrand(player.getClientBrandName()))
                 || deliveryFor(player) == Delivery.NOTHING
                 || !shouldSendRecipeBook(player)) {
@@ -244,7 +244,7 @@ public final class RecipeSyncService {
     /**
      * Serves a client that is not on the server's Minecraft version.
      *
-     * <p>The payload is withheld — sending it is what was disconnecting these players — but the
+     * <p>The payload is withheld (sending it is what was disconnecting these players), but the
      * recipe book still goes out under {@code safe}, because ViaVersion translates it properly and
      * it is the whole of what REI reads. JEI cannot be served at all: the only thing it reads is the
      * payload, and there is no version-independent form of it.
@@ -278,7 +278,7 @@ public final class RecipeSyncService {
 
     /**
      * Join-path sync. The recipes themselves go out once per connection, but the pieces that depend
-     * on what the client reported — the JEI re-read trigger and the recipe book — are topped up if
+     * on what the client reported (the JEI re-read trigger and the recipe book) are topped up if
      * the client announces the channel for them later. Deciding once, at the moment the recipes were
      * sent, silently left those clients unserved until someone ran /jrf resync.
      */
@@ -290,7 +290,7 @@ public final class RecipeSyncService {
     }
 
     /**
-     * Tells the player where their recipes stand, once per connection — the join path, the late
+     * Tells the player where their recipes stand, once per connection: the join path, the late
      * top-up and the settle pass can all deliver to the same player.
      *
      * <p>A client on another Minecraft version that runs JEI is told so, because that is the one

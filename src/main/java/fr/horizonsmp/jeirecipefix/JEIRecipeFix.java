@@ -67,7 +67,7 @@ public final class JEIRecipeFix extends JavaPlugin {
     /**
      * Says once, at startup, whether players on another Minecraft version can be recognised. Without
      * ViaVersion on this server there is nothing to recognise them by, and what they are sent then
-     * comes down to {@code cross-version-unknown-is-native} — worth knowing before a player is kicked.
+     * comes down to {@code cross-version-unknown-is-native}, worth knowing before a player is kicked.
      */
     private void logProtocolState(ProtocolGate gate) {
         if (gate.viaDetected()) {

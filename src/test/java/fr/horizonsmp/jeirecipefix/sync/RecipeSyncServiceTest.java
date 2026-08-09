@@ -392,7 +392,7 @@ class RecipeSyncServiceTest {
         RecipeSyncService service = crossVersionService(CrossVersionMode.SAFE, RecipeBookMode.AUTO);
 
         // Joins before saying which viewer it runs: nothing to send yet, but the payload question is
-        // settled — withheld on purpose — and must not be reopened on every channel it announces.
+        // settled (withheld on purpose) and must not be reopened on every channel it announces.
         Player bare = fabricPlayer(FABRIC_SYNC);
         assertFalse(service.syncOnceTo(bare));
         assertEquals(List.of(), calls);

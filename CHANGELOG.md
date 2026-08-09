@@ -8,7 +8,7 @@ All notable changes to this project are documented here.
 - **Players on an older Minecraft version were disconnected the moment they joined.** On a server
   running ViaVersion/ViaBackwards, a client on a different version than the server was kicked as soon
   as the plugin sent it the recipes. The recipe payload travels on a channel ViaVersion has no
-  schema for, so it is forwarded without translation — and it carries the server's internal item
+  schema for, so it is forwarded without translation, and it carries the server's internal item
   numbers, which move with every Minecraft version. The client read them against its own numbering,
   failed to decode, and dropped the connection. The plugin now looks up each player's real Minecraft
   version and holds the payload back from anyone not on the server's own version.
@@ -17,7 +17,7 @@ All notable changes to this project are documented here.
 - `cross-version-sync` in `config.yml` (`safe` / `off` / `force`) decides what those players are sent.
   `safe`, the default, still sends them the vanilla recipe book, which ViaVersion does translate: REI
   works for them as well as for anyone else. JEI reads only the payload, so it shows no server
-  recipes for them — they get one chat line saying so, `cross-version-notice` in `messages.yml`.
+  recipes for them, and they get one chat line saying so, `cross-version-notice` in `messages.yml`.
 - `cross-version-unknown-is-native` for servers whose ViaVersion runs on the proxy rather than on the
   server itself, where a player's real version cannot be seen from here.
 - `/jrf info` now reports the server's protocol number, whether ViaVersion was detected, and how many
@@ -33,7 +33,7 @@ All notable changes to this project are documented here.
 ## [0.3.0] - 2026-08-04
 
 ### Added
-- **REI support.** REI does not read the recipe sync JEI uses — it builds its list from the server's
+- **REI support.** REI does not read the recipe sync JEI uses; it builds its list from the server's
   recipe book, and a server only ever sends the recipes a player has already unlocked, which is why
   REI showed nothing. The plugin now sends the full recipe book to clients that report REI, and REI
   shows the server's recipes, datapack and plugin ones included.
@@ -54,7 +54,7 @@ All notable changes to this project are documented here.
 ### Fixed
 - JEI showed *"This server does not provide recipes to JEI"* and kept using your client's own
   recipes. Since JEI 30.8.0.51 (26.2) and 29.14.0.43 (26.1), JEI builds its recipe list the moment
-  the server's own recipe packet arrives — which is before any plugin can send anything — so the
+  the server's own recipe packet arrives, which is before any plugin can send anything, so the
   recipes this plugin sent a moment later were ignored for the rest of the session. The plugin now
   asks the client to re-read its recipes right after sending them, so JEI reloads with the server's
   recipes. JEI still prints its warning once at join; a silent JEI reload right after it means the
@@ -95,6 +95,6 @@ All notable changes to this project are documented here.
 
 ### Added
 - Your server's recipes now show up again in JEI, REI and EMI on Paper, Purpur and Folia.
-- Works automatically for Fabric and NeoForge clients — no client mod needed.
+- Works automatically for Fabric and NeoForge clients, with no client mod needed.
 - Recipes update after a datapack reload.
 - Admin commands to re-send recipes, reload settings, and check status.

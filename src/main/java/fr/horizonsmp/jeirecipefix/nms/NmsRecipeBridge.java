@@ -686,8 +686,8 @@ public final class NmsRecipeBridge implements RecipeBridge {
     }
 
     /**
-     * Logs at most one stack trace per failure kind per interval. The previous behaviour — one latch
-     * for the whole plugin, set forever by the first failure — is what let a broken sync look healthy.
+     * Logs at most one stack trace per failure kind per interval. The previous behaviour (one latch
+     * for the whole plugin, set forever by the first failure) is what let a broken sync look healthy.
      */
     private void logFailure(String kind, String message, Throwable error) {
         failures.incrementAndGet();
