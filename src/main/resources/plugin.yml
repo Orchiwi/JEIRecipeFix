@@ -1,6 +1,6 @@
 name: JEIRecipeFix
 version: '${version}'
-description: Sends server recipes to JEI clients so recipe lookups work again.
+description: Sends your server's recipes to JEI and REI clients.
 author: Orchiwi
 
 main: fr.horizonsmp.jeirecipefix.JEIRecipeFix
