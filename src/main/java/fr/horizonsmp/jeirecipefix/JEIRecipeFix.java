@@ -10,6 +10,7 @@ import fr.horizonsmp.jeirecipefix.listener.ResourceReloadListener;
 import fr.horizonsmp.jeirecipefix.nms.NmsRecipeBridge;
 import fr.horizonsmp.jeirecipefix.nms.RecipeBridge;
 import fr.horizonsmp.jeirecipefix.sync.ClientBrand;
+import fr.horizonsmp.jeirecipefix.sync.ProtocolGate;
 import fr.horizonsmp.jeirecipefix.sync.RecipeSyncService;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -41,8 +42,9 @@ public final class JEIRecipeFix extends JavaPlugin {
             getLogger().warning("Unsupported server internals; recipe sync disabled. JEIRecipeFix will stay dormant.");
         }
         this.messages = new Messages(this);
-        this.syncService = new RecipeSyncService(bridge, config::get, this, getLogger(),
-                player -> messages.send(player, "jei-warning-notice"));
+        ProtocolGate gate = ProtocolGate.create(getLogger());
+        this.syncService = new RecipeSyncService(bridge, gate, config::get, this, getLogger(), messages::send);
+        logProtocolState(gate);
 
         getServer().getPluginManager().registerEvents(
                 new PlayerConnectionListener(this, syncService, config::get), this);
@@ -60,6 +62,23 @@ public final class JEIRecipeFix extends JavaPlugin {
         // a Minecraft update moves something, and building them here turns that into a startup
         // error in the log instead of a silent no-op that only players notice.
         warmPayloads();
+    }
+
+    /**
+     * Says once, at startup, whether players on another Minecraft version can be recognised. Without
+     * ViaVersion on this server there is nothing to recognise them by, and what they are sent then
+     * comes down to {@code cross-version-unknown-is-native}, worth knowing before a player is kicked.
+     */
+    private void logProtocolState(ProtocolGate gate) {
+        if (gate.viaDetected()) {
+            getLogger().info("ViaVersion detected (this server speaks protocol " + gate.serverProtocol()
+                    + "). Players on another Minecraft version will not be sent the recipe payload, which "
+                    + "ViaVersion cannot translate; see cross-version-sync in config.yml.");
+        } else if (!config.get().crossVersionUnknownIsNative()) {
+            getLogger().info("ViaVersion is not installed here, so no player's Minecraft version can be "
+                    + "confirmed, and cross-version-unknown-is-native is false: every player is being treated "
+                    + "as if they were on another version. Set it back to true unless ViaVersion runs on your proxy.");
+        }
     }
 
     /** Brings an older config.yml up to date with the settings this version knows about. */

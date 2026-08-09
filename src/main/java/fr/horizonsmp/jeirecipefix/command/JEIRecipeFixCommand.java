@@ -2,6 +2,7 @@ package fr.horizonsmp.jeirecipefix.command;
 
 import fr.horizonsmp.jeirecipefix.JEIRecipeFix;
 import fr.horizonsmp.jeirecipefix.i18n.Messages;
+import fr.horizonsmp.jeirecipefix.sync.ProtocolGate;
 import fr.horizonsmp.jeirecipefix.sync.RecipeSyncService;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -47,10 +48,26 @@ public final class JEIRecipeFixCommand implements CommandExecutor, TabCompleter 
                         "state", syncState(),
                         "trigger", syncService.canTriggerRecipeUpdate() ? "available" : "unavailable",
                         "failures", String.valueOf(syncService.failureCount())));
+                ProtocolGate gate = syncService.protocolGate();
+                messages.send(sender, "info-cross-version", Map.of(
+                        "protocol", protocolLabel(gate.serverProtocol()),
+                        "via", gate.viaDetected() ? "detected" : "absent",
+                        "translated", String.valueOf(countTranslated(gate))));
             }
             case RESYNC -> handleResync(sender, action.target());
         }
         return true;
+    }
+
+    private static String protocolLabel(int protocol) {
+        return protocol == ProtocolGate.UNKNOWN_VERSION ? "unknown" : String.valueOf(protocol);
+    }
+
+    /** How many players online right now are being translated by ViaVersion rather than speaking our protocol. */
+    private static long countTranslated(ProtocolGate gate) {
+        return Bukkit.getOnlinePlayers().stream()
+                .filter(player -> gate.classify(player) == ProtocolGate.Match.TRANSLATED)
+                .count();
     }
 
     /** "active" used to be reported even with the master switch off, which read as everything is fine. */

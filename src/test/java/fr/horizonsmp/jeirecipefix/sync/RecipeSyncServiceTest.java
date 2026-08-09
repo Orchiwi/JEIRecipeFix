@@ -1,5 +1,6 @@
 package fr.horizonsmp.jeirecipefix.sync;
 
+import fr.horizonsmp.jeirecipefix.config.CrossVersionMode;
 import fr.horizonsmp.jeirecipefix.config.PluginConfig;
 import fr.horizonsmp.jeirecipefix.config.RecipeBookMode;
 import fr.horizonsmp.jeirecipefix.nms.RecipeBridge;
@@ -37,9 +38,14 @@ class RecipeSyncServiceTest {
     /** One of REI's own channels; the service only checks the namespace. */
     private static final String REI = RecipeSyncService.REI_CHANNEL_NAMESPACE + "sync_displays";
 
+    /** This server's protocol; OLD_PROTOCOL is a client ViaVersion is translating for. */
+    private static final int SERVER_PROTOCOL = 776;
+    private static final int OLD_PROTOCOL = 775;
+
     private final AtomicInteger fabricBuilds = new AtomicInteger();
     private final List<String> calls = new ArrayList<>();
     private final List<Player> notified = new ArrayList<>();
+    private final List<String> noticeKeys = new ArrayList<>();
 
     private RecipeBridge bridge(boolean available, boolean canTrigger, RecipePayload fabric) {
         return new RecipeBridge() {
@@ -84,14 +90,32 @@ class RecipeSyncServiceTest {
         return service(bridge(available, true, FABRIC_PAYLOAD), config);
     }
 
+    /** A gate that reports every client on the server's own version: the plain, no-ViaVersion case. */
+    private static ProtocolGate nativeGate() {
+        return gate(player -> SERVER_PROTOCOL);
+    }
+
+    private static ProtocolGate gate(java.util.function.ToIntFunction<Player> clientProtocol) {
+        return new ProtocolGate(SERVER_PROTOCOL, clientProtocol, () -> true);
+    }
+
     private static PluginConfig withRecipeBook(RecipeBookMode mode) {
         PluginConfig d = PluginConfig.defaults();
         return new PluginConfig(d.enabled(), d.syncOnJoin(), d.syncOnDatapackReload(),
-                d.recipeUpdateTrigger(), mode, d.explainJeiWarning(), d.debug());
+                d.recipeUpdateTrigger(), mode, d.crossVersionSync(), d.crossVersionUnknownIsNative(),
+                d.explainJeiWarning(), d.debug());
     }
 
     private RecipeSyncService service(RecipeBridge bridge, PluginConfig config) {
-        return new RecipeSyncService(bridge, () -> config, null, Logger.getAnonymousLogger(), notified::add);
+        return service(bridge, config, nativeGate());
+    }
+
+    private RecipeSyncService service(RecipeBridge bridge, PluginConfig config, ProtocolGate gate) {
+        return new RecipeSyncService(bridge, gate, () -> config, null, Logger.getAnonymousLogger(),
+                (player, key) -> {
+                    notified.add(player);
+                    noticeKeys.add(key);
+                });
     }
 
     /** A Player is far too wide to stub by hand; only these few methods are on the sync path. */
@@ -132,7 +156,7 @@ class RecipeSyncServiceTest {
         assertTrue(enabled.shouldSync(ClientBrand.NEOFORGE));
         assertFalse(enabled.shouldSync(ClientBrand.OTHER));
 
-        RecipeSyncService disabled = service(true, new PluginConfig(false, true, true, true, RecipeBookMode.OFF, true, false));
+        RecipeSyncService disabled = service(true, new PluginConfig(false, true, true, true, RecipeBookMode.OFF, CrossVersionMode.SAFE, true, true, false));
         assertFalse(disabled.shouldSync(ClientBrand.FABRIC));
 
         RecipeSyncService unavailable = service(false, PluginConfig.defaults());
@@ -174,7 +198,7 @@ class RecipeSyncServiceTest {
 
     @Test
     void neverTriggersWhenDisabledInConfigOrUnsupportedByTheServer() {
-        PluginConfig triggerOff = new PluginConfig(true, true, true, false, RecipeBookMode.OFF, true, false);
+        PluginConfig triggerOff = new PluginConfig(true, true, true, false, RecipeBookMode.OFF, CrossVersionMode.SAFE, true, true, false);
         service(true, triggerOff).syncTo(fabricPlayer(FABRIC_SYNC, JEI));
 
         RecipeBridge noTrigger = bridge(true, false, FABRIC_PAYLOAD);
@@ -206,7 +230,7 @@ class RecipeSyncServiceTest {
 
     @Test
     void doesNotExplainJeiSWarningWhenTurnedOff() {
-        PluginConfig noticeOff = new PluginConfig(true, true, true, true, RecipeBookMode.OFF, false, false);
+        PluginConfig noticeOff = new PluginConfig(true, true, true, true, RecipeBookMode.OFF, CrossVersionMode.SAFE, true, false, false);
         service(true, noticeOff).syncTo(fabricPlayer(FABRIC_SYNC, JEI));
         assertEquals(List.of(), notified);
     }
@@ -286,5 +310,116 @@ class RecipeSyncServiceTest {
         Player unknown = player(null, Set.of());
         assertFalse(other.syncOnceTo(unknown));
         assertFalse(other.syncOnceTo(unknown));
+    }
+
+    private static PluginConfig crossVersion(CrossVersionMode mode, RecipeBookMode book) {
+        PluginConfig d = PluginConfig.defaults();
+        return new PluginConfig(d.enabled(), d.syncOnJoin(), d.syncOnDatapackReload(),
+                d.recipeUpdateTrigger(), book, mode, d.crossVersionUnknownIsNative(),
+                d.explainJeiWarning(), d.debug());
+    }
+
+    private static PluginConfig unknownIsNative(boolean value) {
+        PluginConfig d = PluginConfig.defaults();
+        return new PluginConfig(d.enabled(), d.syncOnJoin(), d.syncOnDatapackReload(),
+                d.recipeUpdateTrigger(), d.recipeBookSync(), d.crossVersionSync(), value,
+                d.explainJeiWarning(), d.debug());
+    }
+
+    private RecipeSyncService crossVersionService(CrossVersionMode mode, RecipeBookMode book) {
+        return service(bridge(true, true, FABRIC_PAYLOAD), crossVersion(mode, book),
+                gate(player -> OLD_PROTOCOL));
+    }
+
+    @Test
+    void withholdsThePayloadFromAClientOnAnotherVersionButStillSendsTheRecipeBook() {
+        RecipeSyncService service = crossVersionService(CrossVersionMode.SAFE, RecipeBookMode.AUTO);
+
+        assertTrue(service.syncTo(fabricPlayer(FABRIC_SYNC, REI)));
+        // Neither the payload nor the re-read trigger: both are encoded for a version this client
+        // does not speak, and ViaVersion cannot translate the payload at all.
+        assertEquals(List.of("recipe-book"), calls);
+    }
+
+    @Test
+    void sendsNothingToAClientOnAnotherVersionWhenCrossVersionSyncIsOff() {
+        RecipeSyncService service = crossVersionService(CrossVersionMode.OFF, RecipeBookMode.AUTO);
+
+        assertFalse(service.syncTo(fabricPlayer(FABRIC_SYNC, REI)));
+        assertEquals(List.of(), calls);
+    }
+
+    @Test
+    void forceSendsEverythingToAClientOnAnotherVersion() {
+        RecipeSyncService service = crossVersionService(CrossVersionMode.FORCE, RecipeBookMode.AUTO);
+
+        assertTrue(service.syncTo(fabricPlayer(FABRIC_SYNC, JEI)));
+        assertEquals(List.of("fabric:trigger=true"), calls);
+    }
+
+    @Test
+    void treatsAnUndeterminedVersionAsNativeUnlessToldOtherwise() {
+        ProtocolGate undetermined = gate(player -> ProtocolGate.UNKNOWN_VERSION);
+
+        service(bridge(true, true, FABRIC_PAYLOAD), PluginConfig.defaults(), undetermined)
+                .syncTo(fabricPlayer(FABRIC_SYNC, JEI));
+        assertEquals(List.of("fabric:trigger=true"), calls, "no ViaVersion here means no reason to hold back");
+
+        calls.clear();
+        service(bridge(true, true, FABRIC_PAYLOAD), unknownIsNative(false), undetermined)
+                .syncTo(fabricPlayer(FABRIC_SYNC, JEI));
+        assertEquals(List.of(), calls, "a proxy may be translating where this server cannot see it");
+    }
+
+    @Test
+    void tellsAJeiClientOnAnotherVersionWhyItHasNoRecipes() {
+        crossVersionService(CrossVersionMode.SAFE, RecipeBookMode.AUTO)
+                .syncTo(fabricPlayer(FABRIC_SYNC, JEI));
+
+        assertEquals(List.of("cross-version-notice"), noticeKeys);
+    }
+
+    @Test
+    void tellsACrossVersionReiClientOnlyThatItsRecipesArrived() {
+        crossVersionService(CrossVersionMode.SAFE, RecipeBookMode.AUTO)
+                .syncTo(fabricPlayer(FABRIC_SYNC, REI));
+
+        assertEquals(List.of("jei-warning-notice"), noticeKeys, "REI is served in full from the recipe book");
+    }
+
+    @Test
+    void neverRetriesTheWithheldPayloadAndTopsUpOnlyTheRecipeBook() {
+        RecipeSyncService service = crossVersionService(CrossVersionMode.SAFE, RecipeBookMode.AUTO);
+
+        // Joins before saying which viewer it runs: nothing to send yet, but the payload question is
+        // settled (withheld on purpose) and must not be reopened on every channel it announces.
+        Player bare = fabricPlayer(FABRIC_SYNC);
+        assertFalse(service.syncOnceTo(bare));
+        assertEquals(List.of(), calls);
+
+        // Now reports JEI and REI. The recipe book follows; the re-read trigger does not, because
+        // there is no payload on that client for it to re-read.
+        Player later = playerWithId(bare, FABRIC_SYNC, JEI, REI);
+        assertTrue(service.syncOnceTo(later));
+        assertEquals(List.of("recipe-book"), calls);
+
+        calls.clear();
+        assertFalse(service.syncOnceTo(later));
+        assertEquals(List.of(), calls);
+    }
+
+    @Test
+    void resendingTheRecipeBookHonoursTheCrossVersionGateAndTheClientBrand() {
+        assertTrue(service(bridge(true, true, FABRIC_PAYLOAD), withRecipeBook(RecipeBookMode.ALL))
+                .resendRecipeBook(fabricPlayer(FABRIC_SYNC)));
+
+        // 'all' means every modded client; a vanilla client was never sent it on join either.
+        assertFalse(service(bridge(true, true, FABRIC_PAYLOAD), withRecipeBook(RecipeBookMode.ALL))
+                .resendRecipeBook(player("vanilla", Set.of())));
+
+        // Off for clients on another version means off on respawn too.
+        assertFalse(service(bridge(true, true, FABRIC_PAYLOAD),
+                crossVersion(CrossVersionMode.OFF, RecipeBookMode.ALL), gate(player -> OLD_PROTOCOL))
+                .resendRecipeBook(fabricPlayer(FABRIC_SYNC)));
     }
 }
