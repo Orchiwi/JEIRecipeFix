@@ -13,3 +13,8 @@ help: "&bJEIRecipeFix: &e/jrf resync [player|all]&7, &e/jrf reload&7, &e/jrf inf
 # "if present" is deliberate: only JEI 30.8.0.51 / 29.14.0.43 and newer print that warning, and a
 # server cannot see which version of which viewer a player is running.
 jei-warning-notice: "&aRecipes synced. &7Ignore the JEI/REI/EMI warning above if present."
+# Sent once to a player whose Minecraft version differs from the server's and who runs JEI. Their
+# recipe viewer cannot be given the server's recipes: that data is tied to the server's own version.
+cross-version-notice: "&eYour Minecraft version is not the server's. &7Your recipe viewer cannot receive the server's recipes — join on the server's version to see them."
+# Shown by /jrf info.
+info-cross-version: "&7Server protocol: &f%protocol% &7| ViaVersion: &f%via% &7| Players on another version: &f%translated%"

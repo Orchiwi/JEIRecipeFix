@@ -25,8 +25,15 @@ public final class NmsRecipeBridge implements RecipeBridge {
     /** Fabric's client only accepts serializers a recipe viewer opted into, and JEI opts into exactly these. */
     private static final String VANILLA_PREFIX = "minecraft:";
     private static final long FAILURE_LOG_INTERVAL_NANOS = TimeUnit.MINUTES.toNanos(5);
-    /** Well under the protocol frame limit, so even a heavy datapack never produces an oversized packet. */
-    private static final int RECIPE_BOOK_BATCH_BYTES = 512 * 1024;
+    /**
+     * Well under the protocol frame limit, so even a heavy datapack never produces an oversized packet.
+     *
+     * <p>Measured before the packet leaves the server, which is the catch: for a player on an older
+     * Minecraft version, ViaBackwards rewrites these entries afterwards and can only make them bigger
+     * (it appends backup NBT for anything it cannot convert), with nothing re-checking the size. The
+     * budget is kept small enough that even a large expansion stays inside the frame limit.
+     */
+    private static final int RECIPE_BOOK_BATCH_BYTES = 128 * 1024;
 
     private final Plugin plugin;
     private boolean available;

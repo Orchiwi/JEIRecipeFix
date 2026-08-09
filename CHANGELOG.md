@@ -2,6 +2,34 @@
 
 All notable changes to this project are documented here.
 
+## [0.4.0] - 2026-08-09
+
+### Fixed
+- **Players on an older Minecraft version were disconnected the moment they joined.** On a server
+  running ViaVersion/ViaBackwards, a client on a different version than the server was kicked as soon
+  as the plugin sent it the recipes. The recipe payload travels on a channel ViaVersion has no
+  schema for, so it is forwarded without translation — and it carries the server's internal item
+  numbers, which move with every Minecraft version. The client read them against its own numbering,
+  failed to decode, and dropped the connection. The plugin now looks up each player's real Minecraft
+  version and holds the payload back from anyone not on the server's own version.
+
+### Added
+- `cross-version-sync` in `config.yml` (`safe` / `off` / `force`) decides what those players are sent.
+  `safe`, the default, still sends them the vanilla recipe book, which ViaVersion does translate: REI
+  works for them as well as for anyone else. JEI reads only the payload, so it shows no server
+  recipes for them — they get one chat line saying so, `cross-version-notice` in `messages.yml`.
+- `cross-version-unknown-is-native` for servers whose ViaVersion runs on the proxy rather than on the
+  server itself, where a player's real version cannot be seen from here.
+- `/jrf info` now reports the server's protocol number, whether ViaVersion was detected, and how many
+  players online are on another version.
+
+### Changed
+- Recipe-book packets are split into smaller batches (128 KiB rather than 512 KiB). ViaBackwards
+  rewrites them on the way to an older client and can only make them bigger, with nothing checking
+  the size afterwards.
+- Under `recipe-book-sync: all`, the recipe book is no longer re-sent on respawn to clients that were
+  never sent it in the first place, such as vanilla ones.
+
 ## [0.3.0] - 2026-08-04
 
 ### Added

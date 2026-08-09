@@ -7,6 +7,10 @@ main: fr.horizonsmp.jeirecipefix.JEIRecipeFix
 api-version: '1.21'
 load: POSTWORLD
 folia-supported: true
+# Not a dependency: ViaVersion is reached reflectively and the plugin runs fine without it. Listing it
+# only guarantees it is enabled before the first player joins, so their real Minecraft version is
+# known the first time we decide what to send them.
+softdepend: [ViaVersion, ViaBackwards]
 
 commands:
   jeirecipefix:

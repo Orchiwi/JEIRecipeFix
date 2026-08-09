@@ -42,5 +42,30 @@ class ConfigLoaderTest {
         assertTrue(fromEmpty.syncOnJoin());
         assertTrue(fromEmpty.recipeUpdateTrigger());
         assertTrue(fromEmpty.explainJeiWarning());
+        // An existing config.yml predating cross-version support must keep the safe behaviour, not
+        // fall back to sending the payload to everyone.
+        assertEquals(CrossVersionMode.SAFE, fromEmpty.crossVersionSync());
+        assertTrue(fromEmpty.crossVersionUnknownIsNative());
+    }
+
+    @Test
+    void readsCrossVersionSettings() throws Exception {
+        YamlConfiguration yaml = new YamlConfiguration();
+        yaml.loadFromString("""
+                cross-version-sync: force
+                cross-version-unknown-is-native: false
+                """);
+
+        PluginConfig config = ConfigLoader.fromSection(yaml);
+
+        assertEquals(CrossVersionMode.FORCE, config.crossVersionSync());
+        assertFalse(config.crossVersionUnknownIsNative());
+    }
+
+    @Test
+    void keepsTheConfiguredModeWhenTheValueIsNotOneWeKnow() {
+        assertEquals(CrossVersionMode.SAFE, CrossVersionMode.parse("nonsense", CrossVersionMode.SAFE));
+        assertEquals(CrossVersionMode.OFF, CrossVersionMode.parse("  OFF  ", CrossVersionMode.SAFE));
+        assertEquals(CrossVersionMode.SAFE, CrossVersionMode.parse(null, CrossVersionMode.SAFE));
     }
 }

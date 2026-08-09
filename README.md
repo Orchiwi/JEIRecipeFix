@@ -48,11 +48,29 @@ REI does not read the recipe sync JEI uses; it builds its list from the server's
 
 By default this is sent only to clients that report REI, which a server can only detect on Fabric. A NeoForge client running REI needs `recipe-book-sync: all`. Set it to `off` if you would rather keep the vanilla recipe book untouched, at the cost of REI showing your client's own recipes instead of the server's.
 
+### Servers running ViaVersion / ViaBackwards
+
+If your server lets players join on a **different Minecraft version than the server itself**, those players are handled differently — and they have to be.
+
+The recipes travel on a channel ViaVersion has no schema for, so it forwards them without translating them. The data carries the server's *internal item numbers*, and those numbers shift with every Minecraft release. A client that reads them against its own numbering fails to decode them and drops the connection. Before version 0.4.0 this disconnected such players the instant they joined.
+
+The plugin now looks up each player's real Minecraft version and holds the recipes back from anyone who is not on the server's own version. What they get instead is set by `cross-version-sync`:
+
+| Value | Effect |
+| --- | --- |
+| `safe` *(default)* | No recipe payload, but still the full recipe book. **REI works normally for them.** JEI reads only the payload, so it shows no server recipes — those players get one chat line explaining why. Nobody is disconnected. |
+| `off` | Those players are sent nothing at all. |
+| `force` | Send everything regardless. **This disconnects JEI players on another version.** Only for a server where every client is on the server's own version. |
+
+There is no way to serve **JEI** across versions: the recipe data is tied to the exact version that encoded it, and ViaVersion offers no hook to translate it. This is a permanent limitation, not a bug awaiting a fix.
+
+Detection needs **ViaVersion installed on the server itself**. If yours runs on a proxy instead, this server cannot see a player's real version — set `cross-version-unknown-is-native: false` so those players are treated as being on another version. One case stays invisible either way: a player using a client-side translator such as ViaFabricPlus looks native to the server, and will still be disconnected. They need to join on the server's version.
+
 ## Commands
 
 | Command | Description |
 | --- | --- |
-| `/jrf info` | Show status: recipe count, online players, sync state, send failures. |
+| `/jrf info` | Show status: recipe count, online players, sync state, send failures, and the server's protocol / how many players are on another version. |
 | `/jrf resync [player\|all]` | Re-send recipes (useful after datapack changes). |
 | `/jrf reload` | Reload the configuration. |
 
@@ -68,6 +86,8 @@ sync-on-join: true
 sync-on-datapack-reload: true
 recipe-update-trigger: true
 recipe-book-sync: auto
+cross-version-sync: safe
+cross-version-unknown-is-native: true
 explain-jei-warning: true
 debug: false
 ```
@@ -75,6 +95,8 @@ debug: false
 `recipe-update-trigger` is what makes an already-running JEI re-read the recipes. It is only sent to clients that report both Fabric's recipe-sync channel and JEI, so other mods are left alone. Turning it off means recipes are still sent but JEI will keep showing your client's defaults.
 
 `recipe-book-sync` decides who receives the full recipe book: `auto` (only clients reporting REI), `all` (every modded client, for viewers this plugin cannot detect), or `off`.
+
+`cross-version-sync` and `cross-version-unknown-is-native` only matter on a server running ViaVersion — see [above](#servers-running-viaversion--viabackwards).
 
 `explain-jei-warning` sends the one-line notice above, only to players whose client actually received the recipes and was identified as running a recipe viewer. Its wording lives in `messages.yml` under `jei-warning-notice`.
 
