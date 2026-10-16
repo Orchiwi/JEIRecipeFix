@@ -12,8 +12,10 @@ repositories {
 dependencies {
     compileOnly(libs.paper.api)
     compileOnly(libs.netty.buffer)
+    compileOnly(libs.netty.transport)
 
     testImplementation(libs.paper.api)
+    testImplementation(libs.netty.transport)
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.launcher)
 }

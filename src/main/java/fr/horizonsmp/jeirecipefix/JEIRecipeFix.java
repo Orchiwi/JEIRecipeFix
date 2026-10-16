@@ -7,9 +7,11 @@ import fr.horizonsmp.jeirecipefix.config.PluginConfig;
 import fr.horizonsmp.jeirecipefix.i18n.Messages;
 import fr.horizonsmp.jeirecipefix.listener.PlayerConnectionListener;
 import fr.horizonsmp.jeirecipefix.listener.ResourceReloadListener;
+import fr.horizonsmp.jeirecipefix.nms.NettyJoinPacketHold;
 import fr.horizonsmp.jeirecipefix.nms.NmsRecipeBridge;
 import fr.horizonsmp.jeirecipefix.nms.RecipeBridge;
 import fr.horizonsmp.jeirecipefix.sync.ClientBrand;
+import fr.horizonsmp.jeirecipefix.sync.JoinPacketHold;
 import fr.horizonsmp.jeirecipefix.sync.ProtocolGate;
 import fr.horizonsmp.jeirecipefix.sync.RecipeSyncService;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -28,6 +30,7 @@ public final class JEIRecipeFix extends JavaPlugin {
 
     private final AtomicReference<PluginConfig> config = new AtomicReference<>(PluginConfig.defaults());
     private RecipeSyncService syncService;
+    private JoinPacketHold joinPacketHold = JoinPacketHold.NONE;
     private Messages messages;
 
     @Override
@@ -43,7 +46,13 @@ public final class JEIRecipeFix extends JavaPlugin {
         }
         this.messages = new Messages(this);
         ProtocolGate gate = ProtocolGate.create(getLogger());
-        this.syncService = new RecipeSyncService(bridge, gate, config::get, this, getLogger(), messages::send);
+        // Hooked in now, before anyone can join, so that it is in every connection's pipeline by the
+        // time the server sends that connection its first recipe packet.
+        if (bridge.isAvailable()) {
+            this.joinPacketHold = NettyJoinPacketHold.install(this);
+        }
+        this.syncService = new RecipeSyncService(bridge, gate, config::get, this, getLogger(), messages::send,
+                joinPacketHold);
         logProtocolState(gate);
 
         getServer().getPluginManager().registerEvents(
@@ -62,6 +71,14 @@ public final class JEIRecipeFix extends JavaPlugin {
         // a Minecraft update moves something, and building them here turns that into a startup
         // error in the log instead of a silent no-op that only players notice.
         warmPayloads();
+    }
+
+    @Override
+    public void onDisable() {
+        if (joinPacketHold instanceof NettyJoinPacketHold hold) {
+            hold.uninstall();
+        }
+        joinPacketHold = JoinPacketHold.NONE;
     }
 
     /**

@@ -39,10 +39,15 @@ public final class PlayerConnectionListener implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        // The join's recipe packet went out a moment ago and is being held. Only a client this
+        // plugin may still send the payload to is worth keeping it from; everyone else gets it now.
+        if (!syncService.shouldHoldJoinPacket(player)) {
+            syncService.releaseJoinPacket(player);
+        }
         if (!config.get().syncOnJoin()) {
             return;
         }
-        Player player = event.getPlayer();
         if (ClientBrand.fromBrand(player.getClientBrandName()) == ClientBrand.NEOFORGE) {
             syncService.syncOnceTo(player);
             return;

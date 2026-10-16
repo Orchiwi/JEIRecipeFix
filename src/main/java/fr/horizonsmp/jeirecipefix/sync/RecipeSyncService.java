@@ -59,6 +59,7 @@ public final class RecipeSyncService {
     private final Logger logger;
     private final Lazy<RecipePayload> fabricPayload;
     private final Lazy<RecipePayload> neoForgePayload;
+    private final JoinPacketHold hold;
 
     /** Sends one of the {@code NOTICE_*} messages to a player. */
     private final BiConsumer<Player, String> notice;
@@ -76,7 +77,13 @@ public final class RecipeSyncService {
 
     public RecipeSyncService(RecipeBridge bridge, ProtocolGate gate, Supplier<PluginConfig> config, Plugin plugin,
                              Logger logger, BiConsumer<Player, String> notice) {
+        this(bridge, gate, config, plugin, logger, notice, JoinPacketHold.NONE);
+    }
+
+    public RecipeSyncService(RecipeBridge bridge, ProtocolGate gate, Supplier<PluginConfig> config, Plugin plugin,
+                             Logger logger, BiConsumer<Player, String> notice, JoinPacketHold hold) {
         this.bridge = bridge;
+        this.hold = hold;
         this.gate = gate;
         this.config = config;
         this.plugin = plugin;
@@ -174,12 +181,48 @@ public final class RecipeSyncService {
         return sent;
     }
 
+    /**
+     * Whether the recipe packet this player was sent on joining should stay held until the payload
+     * has gone out. Decided on joining, from what is known by then (the brand comes in during
+     * configuration; the channels only later), so it says yes to every Fabric client this plugin
+     * may send the payload to. One that turns out not to want it is released as soon as that is
+     * clear, and none is held for longer than the hold's own time limit.
+     */
+    public boolean shouldHoldJoinPacket(Player player) {
+        PluginConfig settings = config.get();
+        if (!settings.holdJoinRecipePacket() || !settings.syncOnJoin()) {
+            return false;
+        }
+        ClientBrand brand = ClientBrand.fromBrand(player.getClientBrandName());
+        if (brand != ClientBrand.FABRIC || !shouldSync(brand) || deliveryFor(player) != Delivery.EVERYTHING) {
+            return false;
+        }
+        RecipePayload payload = payloadFor(brand);
+        return payload != null && !payload.isEmpty() && payload.size() <= MAX_PAYLOAD_BYTES;
+    }
+
+    /** Lets this player's held join packet go, or makes sure it is not held. */
+    public void releaseJoinPacket(Player player) {
+        hold.release(player);
+    }
+
     private static boolean hasJei(Set<String> channels) {
         return channels.stream().anyMatch(channel -> channel.startsWith(JEI_CHANNEL_NAMESPACE));
     }
 
-    /** Sends recipes to one player if applicable. Returns true if a payload was sent. */
+    /**
+     * Sends recipes to one player if applicable. Returns true if a payload was sent. Whatever the
+     * outcome, the player's join packet is no longer held afterwards.
+     */
     public boolean syncTo(Player player) {
+        try {
+            return deliver(player);
+        } finally {
+            hold.release(player);
+        }
+    }
+
+    private boolean deliver(Player player) {
         if (!player.isOnline()) {
             return false;
         }
@@ -211,10 +254,21 @@ public final class RecipeSyncService {
         }
         boolean sent;
         boolean trigger = false;
+        boolean heldBehind = false;
         switch (brand) {
             case FABRIC -> {
-                trigger = shouldTriggerRecipeUpdate(player);
+                // While the join's own recipe packet is held, it is the re-read: let it go right
+                // behind the payload, the order a Fabric server sends them in. JEI then starts once,
+                // on the server's recipes. A trigger on top would be a second recipe packet after
+                // the payload, and JEI drops the synced recipes on any recipe packet that does not
+                // directly follow a sync.
+                boolean held = hold.isHolding(player);
+                trigger = !held && shouldTriggerRecipeUpdate(player);
                 sent = bridge.sendFabric(player, payload.bytes(), trigger);
+                if (sent && held) {
+                    hold.release(player);
+                    heldBehind = true;
+                }
             }
             case NEOFORGE -> sent = bridge.sendNeoForge(player, payload.bytes());
             default -> {
@@ -223,7 +277,7 @@ public final class RecipeSyncService {
         }
         if (sent) {
             payloadSettled.add(player.getUniqueId());
-            if (trigger) {
+            if (trigger || heldBehind) {
                 sentTrigger.add(player.getUniqueId());
             }
         }
@@ -235,7 +289,9 @@ public final class RecipeSyncService {
             }
         }
         if (sent) {
-            logSend(player, brand, payload, trigger, recipeBook);
+            logSend(player, brand, payload, trigger, heldBehind, recipeBook);
+            // A client that got the payload before its first recipe packet had nothing to warn
+            // about, so it is not told to ignore a warning.
             notify(player, Delivery.EVERYTHING, trigger || recipeBook);
         }
         return sent;
@@ -286,7 +342,11 @@ public final class RecipeSyncService {
         if (!payloadSettled.contains(player.getUniqueId())) {
             return syncTo(player);
         }
-        return topUp(player);
+        try {
+            return topUp(player);
+        } finally {
+            hold.release(player);
+        }
     }
 
     /**
@@ -407,10 +467,11 @@ public final class RecipeSyncService {
     }
 
     private void logSend(Player player, ClientBrand brand, RecipePayload payload, boolean triggered,
-                         boolean recipeBook) {
+                         boolean heldBehind, boolean recipeBook) {
         String message = "Sent " + payload.recipes() + " recipes to " + player.getName()
                 + " (" + brand + ", " + payload.size() + " bytes"
-                + (brand == ClientBrand.FABRIC ? ", recipe-update trigger: " + (triggered ? "yes" : "no") : "")
+                + (brand == ClientBrand.FABRIC ? ", recipe-update trigger: "
+                        + (triggered ? "yes" : heldBehind ? "the join's own, held back until now" : "no") : "")
                 + (recipeBook ? ", recipe book: " + bridge.recipeBookStats().entries() + " entries" : "")
                 + ").";
         boolean first;
@@ -419,7 +480,7 @@ public final class RecipeSyncService {
         }
         if (first) {
             logger.info(message);
-            if (brand == ClientBrand.FABRIC && !triggered) {
+            if (brand == ClientBrand.FABRIC && !triggered && !heldBehind) {
                 logger.info("No recipe-update trigger was sent: the client did not report both "
                         + FABRIC_RECIPE_SYNC_CHANNEL + " and a " + JEI_CHANNEL_NAMESPACE
                         + " channel. JEI only re-reads recipes when asked, so it may keep showing "

@@ -21,6 +21,7 @@ public final class ConfigLoader {
                 CrossVersionMode.parse(section.getString("cross-version-sync"), d.crossVersionSync()),
                 section.getBoolean("cross-version-unknown-is-native", d.crossVersionUnknownIsNative()),
                 section.getBoolean("explain-jei-warning", d.explainJeiWarning()),
-                section.getBoolean("debug", d.debug()));
+                section.getBoolean("debug", d.debug()),
+                section.getBoolean("hold-join-recipe-packet", d.holdJoinRecipePacket()));
     }
 }

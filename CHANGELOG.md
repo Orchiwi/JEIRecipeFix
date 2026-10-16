@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Fixed
+- JEI printed "This server does not provide recipes to JEI" on every join, although the recipes
+  arrived a moment later. JEI starts the moment the vanilla recipe packet is handled, and Paper sends
+  that packet before any plugin hears of the player, so JEI always started once on the client's own
+  recipes first. The join's recipe packet is now held back for Fabric clients until the recipes have
+  gone out, and sent right after them: the order a Fabric server uses. JEI starts once, on the
+  server's recipes, and the chat line asking players to ignore the warning is no longer sent to them.
+
+### Added
+- `hold-join-recipe-packet` (on by default) switches that off.
+
 ## [0.4.0] - 2026-08-09
 
 ### Fixed

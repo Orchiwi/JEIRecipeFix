@@ -422,4 +422,102 @@ class RecipeSyncServiceTest {
                 crossVersion(CrossVersionMode.OFF, RecipeBookMode.ALL), gate(player -> OLD_PROTOCOL))
                 .resendRecipeBook(fabricPlayer(FABRIC_SYNC)));
     }
+
+    /** Records what the service asks of the join packet hold, in the same list as the bridge's calls. */
+    private final class RecordingHold implements JoinPacketHold {
+        private boolean holding;
+
+        RecordingHold(boolean holding) {
+            this.holding = holding;
+        }
+
+        @Override
+        public boolean isHolding(Player player) {
+            return holding;
+        }
+
+        @Override
+        public void release(Player player) {
+            calls.add(holding ? "release-held" : "release");
+            holding = false;
+        }
+    }
+
+    private RecipeSyncService service(RecipeBridge bridge, PluginConfig config, JoinPacketHold hold) {
+        return new RecipeSyncService(bridge, nativeGate(), () -> config, null, Logger.getAnonymousLogger(),
+                (player, key) -> {
+                    notified.add(player);
+                    noticeKeys.add(key);
+                }, hold);
+    }
+
+    private static PluginConfig withHold(boolean hold, boolean syncOnJoin) {
+        PluginConfig d = PluginConfig.defaults();
+        return new PluginConfig(d.enabled(), syncOnJoin, d.syncOnDatapackReload(), d.recipeUpdateTrigger(),
+                d.recipeBookSync(), d.crossVersionSync(), d.crossVersionUnknownIsNative(), d.explainJeiWarning(),
+                d.debug(), hold);
+    }
+
+    @Test
+    void sendsTheHeldJoinPacketRightBehindThePayloadInsteadOfATrigger() {
+        RecipeSyncService service = service(bridge(true, true, FABRIC_PAYLOAD), PluginConfig.defaults(),
+                new RecordingHold(true));
+        Player jei = fabricPlayer(FABRIC_SYNC, JEI);
+
+        assertTrue(service.syncTo(jei));
+        // The join's own packet is the re-read; a trigger as well would be a second recipe packet.
+        assertEquals(List.of("fabric:trigger=false", "release-held", "release"), calls);
+        assertEquals(List.of(), noticeKeys, "a client that got the recipes first had no warning to explain");
+
+        // Reporting JEI again later does not add a trigger after the fact.
+        calls.clear();
+        assertFalse(service.syncOnceTo(playerWithId(jei, FABRIC_SYNC, JEI)));
+        assertEquals(List.of("release"), calls);
+    }
+
+    @Test
+    void triggersAsBeforeWhenNothingIsHeld() {
+        RecipeSyncService service = service(bridge(true, true, FABRIC_PAYLOAD), PluginConfig.defaults(),
+                new RecordingHold(false));
+
+        service.syncTo(fabricPlayer(FABRIC_SYNC, JEI));
+        assertEquals(List.of("fabric:trigger=true", "release"), calls);
+        assertEquals(List.of("jei-warning-notice"), noticeKeys);
+    }
+
+    @Test
+    void releasesTheHeldPacketWhenThereIsNothingToSend() {
+        service(bridge(true, true, EMPTY_PAYLOAD), PluginConfig.defaults(), new RecordingHold(true))
+                .syncTo(fabricPlayer(FABRIC_SYNC, JEI));
+        assertEquals(List.of("release-held"), calls);
+
+        calls.clear();
+        service(bridge(true, true, FABRIC_PAYLOAD), PluginConfig.defaults(), new RecordingHold(true))
+                .syncTo(player("vanilla", Set.of()));
+        assertEquals(List.of("release-held"), calls);
+    }
+
+    @Test
+    void holdsTheJoinPacketOnlyForAFabricClientThatCanBeServed() {
+        RecipeSyncService service = service(bridge(true, true, FABRIC_PAYLOAD), PluginConfig.defaults(),
+                JoinPacketHold.NONE);
+        assertTrue(service.shouldHoldJoinPacket(player("fabric", Set.of())),
+                "on joining the channels are not known yet; the brand is");
+        assertFalse(service.shouldHoldJoinPacket(player("vanilla", Set.of())));
+        assertFalse(service.shouldHoldJoinPacket(player(null, Set.of())));
+        assertFalse(service.shouldHoldJoinPacket(player("neoforge", Set.of())));
+
+        assertFalse(service(bridge(true, true, FABRIC_PAYLOAD), withHold(false, true), JoinPacketHold.NONE)
+                .shouldHoldJoinPacket(player("fabric", Set.of())));
+        assertFalse(service(bridge(true, true, FABRIC_PAYLOAD), withHold(true, false), JoinPacketHold.NONE)
+                .shouldHoldJoinPacket(player("fabric", Set.of())));
+        assertFalse(service(bridge(false, true, FABRIC_PAYLOAD), PluginConfig.defaults(), JoinPacketHold.NONE)
+                .shouldHoldJoinPacket(player("fabric", Set.of())));
+        assertFalse(service(bridge(true, true, EMPTY_PAYLOAD), PluginConfig.defaults(), JoinPacketHold.NONE)
+                .shouldHoldJoinPacket(player("fabric", Set.of())));
+        assertFalse(service(bridge(true, true, OVERSIZED_PAYLOAD), PluginConfig.defaults(), JoinPacketHold.NONE)
+                .shouldHoldJoinPacket(player("fabric", Set.of())));
+        assertFalse(crossVersionService(CrossVersionMode.SAFE, RecipeBookMode.OFF)
+                .shouldHoldJoinPacket(player("fabric", Set.of())), "it would never be sent the payload");
+    }
 }

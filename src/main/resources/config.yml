@@ -16,6 +16,16 @@ sync-on-datapack-reload: true
 # Turn this off if a recipe viewer misbehaves; recipes are then only correct after a rejoin.
 recipe-update-trigger: true
 
+# Hold back the recipe packet a Fabric client is sent on joining until the recipes have gone out,
+# and send it right after them.
+# JEI starts the moment that packet arrives. Sent first, as a Paper server does, it makes JEI start
+# on your client's own recipes and print "This server does not provide recipes to JEI" in chat,
+# before the recipes arrive and JEI starts again. A Fabric server sends the recipes just before that
+# packet; this makes the order the same here, so JEI starts once, on the server's recipes, with no
+# warning. The packet is held for a moment at the most (ten seconds if the server stalls).
+# Turn this off if a client misbehaves while joining; JEI then warns again, as before.
+hold-join-recipe-packet: true
+
 # Send the server's full recipe book to the client.
 # This is the only thing REI reads: it builds its recipe list from the vanilla recipe-book packet,
 # and a server normally sends only the recipes a player has already unlocked, which is why REI looks
@@ -50,8 +60,9 @@ cross-version-unknown-is-native: true
 # A recipe viewer can warn that the server provides no recipes before any plugin is allowed to send
 # anything, and that warning stays on screen after the recipes have quietly arrived. This sends one
 # chat line saying so, once per join, and only to players whose client actually received the recipes
-# and was identified as running a recipe viewer. The wording lives in messages.yml under
-# jei-warning-notice.
+# and was identified as running a recipe viewer. A client whose join packet was held back (see
+# hold-join-recipe-packet) had nothing to warn about and is not sent it. The wording lives in
+# messages.yml under jei-warning-notice.
 explain-jei-warning: true
 
 # Verbose logging for troubleshooting (per-player brand + recipe counts).
